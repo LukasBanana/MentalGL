@@ -21,10 +21,18 @@ add_library(MentalGL STATIC "${PROJECT_SOURCE_DIR}/mental_gl.h")
 set_target_properties(MentalGL PROPERTIES LINKER_LANGUAGE C DEBUG_POSTFIX "D")
 
 if(OpenGL_FOUND AND GLUT_FOUND)
-	include_directories(${GLUT_INCLUDE_DIR})
+	include_directories(
+		"${GLUT_INCLUDE_DIR}"
+		"${PROJECT_SOURCE_DIR}/thirdparty/glad/include"
+	)
 	
 	# Test 1
-	add_executable(test1 "${PROJECT_SOURCE_DIR}/test1.c")
+	add_executable(
+		test1
+		"${PROJECT_SOURCE_DIR}/test1.c"
+		"${PROJECT_SOURCE_DIR}/thirdparty/glad/src/glad.c"
+		"${PROJECT_SOURCE_DIR}/thirdparty/glad/include/glad/glad.h"
+	)
 	set_target_properties(test1 PROPERTIES LINKER_LANGUAGE C DEBUG_POSTFIX "D")
 	target_link_libraries(test1 ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
 else()

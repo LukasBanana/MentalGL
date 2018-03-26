@@ -64,7 +64,14 @@ void mglFreeString(MGLString s);
 #ifdef MENTAL_GL_IMPLEMENTATION
 
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4996)
+#endif // /_MSC_VER
+
+
 #include <string.h>
+#include <stdio.h>
 #include <GL/GL.h>
 #include <GL/glext.h>
 
@@ -248,36 +255,60 @@ static void mglStringInternalAppendCStr(MGLStringInternal* s, const char* append
     }
 }
 
-static void mglEnumToHex(char* s, GLenum e)
+static void mglEnumToHex(char* s, unsigned val)
 {
-	//sprintf();
+	sprintf(s, "0x%*X", 8, val);
+    for (s += 2; *s == ' '; ++s)
+        *s = '0';
 }
 
 static const char* mglTextureTargetStr(GLenum target)
 {
 	switch (target)
 	{
-		#ifdef GL_TEXTURE_1D
-		MGL_CASE2STR( GL_TEXTURE_1D );
-		#endif
-		#ifdef GL_TEXTURE_2D
-		MGL_CASE2STR( GL_TEXTURE_2D );
-		#endif
-		#ifdef GL_TEXTURE_3D
-		MGL_CASE2STR( GL_TEXTURE_3D );
-		#endif
-		#ifdef GL_TEXTURE_1D_ARRAY
-		MGL_CASE2STR( GL_TEXTURE_1D_ARRAY );
-		#endif
-		#ifdef GL_TEXTURE_2D_ARRAY
-		MGL_CASE2STR( GL_TEXTURE_2D_ARRAY );
-		#endif
-		#ifdef GL_TEXTURE_CUBE_MAP
-		MGL_CASE2STR( GL_TEXTURE_CUBE_MAP );
-		#endif
-		#ifdef GL_TEXTURE_CUBE_MAP_ARRAY
-		MGL_CASE2STR( GL_TEXTURE_CUBE_MAP_ARRAY );
-		#endif
+        #ifdef GL_TEXTURE_1D
+        MGL_CASE2STR( GL_TEXTURE_1D );
+        #endif // /GL_TEXTURE_1D
+        
+        #ifdef GL_TEXTURE_2D
+        MGL_CASE2STR( GL_TEXTURE_2D );
+        #endif // /GL_TEXTURE_2D
+        
+        #ifdef GL_TEXTURE_3D
+        MGL_CASE2STR( GL_TEXTURE_3D );
+        #endif // /GL_TEXTURE_3D
+        
+        #ifdef GL_TEXTURE_1D_ARRAY
+        MGL_CASE2STR( GL_TEXTURE_1D_ARRAY );
+        #endif // /GL_TEXTURE_1D_ARRAY
+        
+        #ifdef GL_TEXTURE_2D_ARRAY
+        MGL_CASE2STR( GL_TEXTURE_2D_ARRAY );
+        #endif // /GL_TEXTURE_2D_ARRAY
+        
+        #ifdef GL_TEXTURE_RECTANGLE
+        MGL_CASE2STR( GL_TEXTURE_RECTANGLE );
+        #endif // /GL_TEXTURE_RECTANGLE
+        
+        #ifdef GL_TEXTURE_CUBE_MAP
+        MGL_CASE2STR( GL_TEXTURE_CUBE_MAP );
+        #endif // /GL_TEXTURE_CUBE_MAP
+        
+        #ifdef GL_TEXTURE_CUBE_MAP_ARRAY
+        MGL_CASE2STR( GL_TEXTURE_CUBE_MAP_ARRAY );
+        #endif // /GL_TEXTURE_CUBE_MAP_ARRAY
+        
+        #ifdef GL_TEXTURE_BUFFER
+        MGL_CASE2STR( GL_TEXTURE_BUFFER );
+        #endif // /GL_TEXTURE_BUFFER
+        
+        #ifdef GL_TEXTURE_2D_MULTISAMPLE
+        MGL_CASE2STR( GL_TEXTURE_2D_MULTISAMPLE );
+        #endif // /GL_TEXTURE_2D_MULTISAMPLE
+
+        #ifdef GL_TEXTURE_2D_MULTISAMPLE_ARRAY
+        MGL_CASE2STR( GL_TEXTURE_2D_MULTISAMPLE_ARRAY );
+        #endif // /GL_TEXTURE_2D_MULTISAMPLE_ARRAY
 	}
 	return NULL;
 }
@@ -295,6 +326,10 @@ static const char* mglTextureTargetStr(GLenum target)
 #undef MGL_FREE
 #undef MGL_STRING_MIN_CAPACITY
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // /_MSC_VER
+
 
 // *****************************************************************
 //      GLOBAL FUNCTIONS
@@ -309,7 +344,12 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     if (formatting == NULL)
         formatting = (&formattingDefault);
 
+    glActiveTexture(GL_TEXTURE0);
+    //glGetIntegerv(GL_TEXTURE_BINDING_2D, 
 
+    char h[100] = { 0 };
+    mglEnumToHex(h, GL_TEXTURE_2D);
+    printf("%s\n", h);
 
 
     return (MGLString)s;

@@ -1,6 +1,7 @@
 // Simple test for MentalGL
 // Create on 26/03/2018 by Lukas Hermanns
 
+#include <glad/glad.h>
 #include <GL/glut.h>
 #include <stdio.h>
 
@@ -58,6 +59,8 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     
     glutCreateWindow("MentalGL Test 1");
+
+    gladLoadGL();
 
     glutDisplayFunc(displayCallback);
     
