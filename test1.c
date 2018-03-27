@@ -31,7 +31,10 @@ void drawScene(void)
     if (!renderStateShowen)
     {
         renderStateShowen = 1;
-        MGLString renderState = mglQueryRenderState(NULL);
+
+        MGLQueryFormatting fmt = { ' ', 3, MGLFormattingOrderDefault, 1, NULL };
+        MGLString renderState = mglQueryRenderState(&fmt);
+
         printf("%s\n", mglGetString(renderState));
         mglFreeString(renderState);
     }

@@ -30,6 +30,7 @@ typedef struct MGLQueryFormatting
     size_t                  distance;       // Distances (in number of characters) between the longest attribute name and the attribute values. By default 1.
     enum MGLFormattingOrder order;          // Specifies the formatting order (if sorted for instance). By default MGLFormattingOrderDefault.
     int                     enable_hex;     // Specifies whether unknown enumerations shall be printed as hex codes (if != 0). By default 1.
+    const char*             filter;         // Optional filter to only output parameters which contain this string. By default NULL.
 }
 MGLQueryFormatting;
 
@@ -635,6 +636,20 @@ static void mglNextParamInteger(MGLStringPairArray* str_array, const char* par, 
     mglNextParamString(str_array, par, s_val);
 }
 
+static void mglNextParamUInteger(MGLStringPairArray* str_array, const char* par, GLuint val)
+{
+    char s_val[16];
+    sprintf(s_val, "%u", val);
+    mglNextParamString(str_array, par, s_val);
+}
+
+static void mglNextParamIntegerHex(MGLStringPairArray* str_array, const char* par, GLint val)
+{
+    char s_hex[11];
+    mglEnumToHex(s_hex, (unsigned)val);
+    mglNextParamString(str_array, par, s_hex);
+}
+
 static void mglNextParamBoolean(MGLStringPairArray* str_array, const char* par, GLboolean val)
 {
     mglNextParamString(str_array, par, (val ? "GL_TRUE" : "GL_FALSE"));
@@ -851,6 +866,50 @@ static const char* mglDrawBufferModeStr(GLenum param)
     return NULL;
 }
 
+static const char* mglStencilOpStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_KEEP );
+        MGL_CASE2STR( GL_ZERO );
+        MGL_CASE2STR( GL_REPLACE );
+        MGL_CASE2STR( GL_INCR );
+        MGL_CASE2STR( GL_INCR_WRAP );
+        MGL_CASE2STR( GL_DECR );
+        MGL_CASE2STR( GL_DECR_WRAP );
+        MGL_CASE2STR( GL_INVERT );
+    }
+    return NULL;
+}
+
+static const char* mglCompareFuncStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_NEVER );
+        MGL_CASE2STR( GL_LESS );
+        MGL_CASE2STR( GL_LEQUAL );
+        MGL_CASE2STR( GL_GREATER );
+        MGL_CASE2STR( GL_GEQUAL );
+        MGL_CASE2STR( GL_EQUAL );
+        MGL_CASE2STR( GL_NOTEQUAL );
+        MGL_CASE2STR( GL_ALWAYS );
+    }
+    return NULL;
+}
+
+static const char* mglProvokingVertexModeStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_UNDEFINED_VERTEX );
+        MGL_CASE2STR( GL_FIRST_VERTEX_CONVENTION );
+        MGL_CASE2STR( GL_LAST_VERTEX_CONVENTION );
+        MGL_CASE2STR( GL_PROVOKING_VERTEX );
+    }
+    return NULL;
+}
+
 #endif // /GL_VERSION_2_0
 
 /*static const char* mglTextureTargetStr(GLenum target)
@@ -912,7 +971,7 @@ static const char* mglDrawBufferModeStr(GLenum param)
 MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
 {
     // Internal constnat parameters
-    static const MGLQueryFormatting g_formattingDefault     = { ' ', 1, MGLFormattingOrderDefault, 1 };
+    static const MGLQueryFormatting g_formattingDefault     = { ' ', 1, MGLFormattingOrderDefault, 1, NULL };
     static const char*              g_valNA                 = "n/a";
     static const GLenum             g_drawBufferPnames[16]  = { GL_DRAW_BUFFER0, GL_DRAW_BUFFER1, GL_DRAW_BUFFER2, GL_DRAW_BUFFER3,
                                                                 GL_DRAW_BUFFER4, GL_DRAW_BUFFER5, GL_DRAW_BUFFER6, GL_DRAW_BUFFER7,
@@ -1142,30 +1201,331 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         // Print output
         mglNextParamEnum(&out, "GL_BLEND_EQUATION_ALPHA", rs.iBlendEquationAlpha, mglBlendEquationModeStr);
         mglNextParamEnum(&out, "GL_BLEND_EQUATION_RGB", rs.iBlendEquationRGB, mglBlendEquationModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER0", rs.iDrawBuffer_i[0], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER1", rs.iDrawBuffer_i[1], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER2", rs.iDrawBuffer_i[2], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER3", rs.iDrawBuffer_i[3], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER4", rs.iDrawBuffer_i[4], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER5", rs.iDrawBuffer_i[5], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER6", rs.iDrawBuffer_i[6], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER7", rs.iDrawBuffer_i[7], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER8", rs.iDrawBuffer_i[8], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER9", rs.iDrawBuffer_i[9], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER10", rs.iDrawBuffer_i[10], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER11", rs.iDrawBuffer_i[11], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER12", rs.iDrawBuffer_i[12], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER13", rs.iDrawBuffer_i[13], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER14", rs.iDrawBuffer_i[14], mglDrawBufferModeStr);
-        mglNextParamEnum(&out, "GL_DARW_BUFFER15", rs.iDrawBuffer_i[15], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER0", rs.iDrawBuffer_i[0], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER1", rs.iDrawBuffer_i[1], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER2", rs.iDrawBuffer_i[2], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER3", rs.iDrawBuffer_i[3], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER4", rs.iDrawBuffer_i[4], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER5", rs.iDrawBuffer_i[5], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER6", rs.iDrawBuffer_i[6], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER7", rs.iDrawBuffer_i[7], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER8", rs.iDrawBuffer_i[8], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER9", rs.iDrawBuffer_i[9], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER10", rs.iDrawBuffer_i[10], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER11", rs.iDrawBuffer_i[11], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER12", rs.iDrawBuffer_i[12], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER13", rs.iDrawBuffer_i[13], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER14", rs.iDrawBuffer_i[14], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_DRAW_BUFFER15", rs.iDrawBuffer_i[15], mglDrawBufferModeStr);
+        mglNextParamEnum(&out, "GL_FRAGMENT_SHADER_DERIVATIVE_HINT", rs.iFragmentShaderDerivativeHint, mglHintModeStr);
+        mglNextParamInteger(&out, "GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS", rs.iMaxCombinedTextureImageUnits);
+        mglNextParamInteger(&out, "GL_MAX_DRAW_BUFFERS", rs.iMaxDrawBuffers);
+        mglNextParamInteger(&out, "GL_MAX_FRAGMENT_UNIFORM_COMPONENTS", rs.iMaxFragmentUniformComponents);
+        mglNextParamInteger(&out, "GL_MAX_TEXTURE_IMAGE_UNITS", rs.iMaxTextureImageUnits);
+        mglNextParamInteger(&out, "GL_MAX_VARYING_FLOATS", rs.iMaxVaryingFloats);
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIBS", rs.iMaxVertexAttribs);
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS", rs.iMaxVertexTextureImageUnits);
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_UNIFORM_COMPONENTS", rs.iMaxVertexUniformComponents);
+        mglNextParamEnum(&out, "GL_STENCIL_BACK_FAIL", rs.iStencilBackFail, mglStencilOpStr);
+        mglNextParamEnum(&out, "GL_STENCIL_BACK_FUNC", rs.iStencilBackFunc, mglCompareFuncStr);
+        mglNextParamEnum(&out, "GL_STENCIL_BACK_PASS_DEPTH_FAIL", rs.iStencilBackPassDepthFail, mglStencilOpStr);
+        mglNextParamEnum(&out, "GL_STENCIL_BACK_PASS_DEPTH_PASS", rs.iStencilBackPassDepthPass, mglStencilOpStr);
+        mglNextParamInteger(&out, "GL_STENCIL_BACK_REF", rs.iStencilBackRef);
+        mglNextParamIntegerHex(&out, "GL_STENCIL_BACK_VALUE_MASK", rs.iStencilBackValueMask);
+        mglNextParamIntegerHex(&out, "GL_STENCIL_BACK_WRITEMASK", rs.iStencilBackWriteMask);
     }
     else
     #endif // /GL_VERSION_2_0
     {
         // Print output as unavailable
+        mglNextParamString(&out, "GL_BLEND_EQUATION_ALPHA", g_valNA);
+        mglNextParamString(&out, "GL_BLEND_EQUATION_RGB", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER0", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER1", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER2", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER3", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER4", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER5", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER6", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER7", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER8", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER9", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER10", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER11", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER12", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER13", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER14", g_valNA);
+        mglNextParamString(&out, "GL_DRAW_BUFFER15", g_valNA);
+        mglNextParamString(&out, "GL_FRAGMENT_SHADER_DERIVATIVE_HINT", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_DRAW_BUFFERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAGMENT_UNIFORM_COMPONENTS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_TEXTURE_IMAGE_UNITS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VARYING_FLOATS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_ATTRIBS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_UNIFORM_COMPONENTS", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_FAIL", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_FUNC", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_PASS_DEPTH_FAIL", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_PASS_DEPTH_PASS", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_REF", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_VALUE_MASK", g_valNA);
+        mglNextParamString(&out, "GL_STENCIL_BACK_WRITEMASK", g_valNA);
+    }
+
+    // Query render states since OpenGL 2.1
+    mglNextHeadline(&out, "\nGL_VERSION_2_1");
+
+    #ifdef GL_VERSION_2_1
+    if (MGL_VERSION_MIN(2, 1))
+    {
+        // Query render states
+        glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &(rs.iPixelPackBufferBinding));
+        glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &(rs.iPixelUnpackBufferBinding));
+
+        // Print output
+        mglNextParamInteger(&out, "GL_PIXEL_PACK_BUFFER_BINDING", rs.iPixelPackBufferBinding);
+        mglNextParamInteger(&out, "GL_PIXEL_UNPACK_BUFFER_BINDING", rs.iPixelUnpackBufferBinding);
+    }
+    else
+    #endif // /GL_VERSION_2_1
+    {
+        // Print output as unavailable
+        mglNextParamString(&out, "GL_PIXEL_PACK_BUFFER_BINDING", g_valNA);
+        mglNextParamString(&out, "GL_PIXEL_UNPACK_BUFFER_BINDING", g_valNA);
+    }
+
+    // Query render states since OpenGL 3.0
+    mglNextHeadline(&out, "\nGL_VERSION_3_0");
+
+    #ifdef GL_VERSION_3_0
+    if (MGL_VERSION_MIN(3, 0))
+    {
+        // Query render states
+        glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &(rs.iMaxRenderbufferSize));
+        glGetIntegerv(GL_MAX_VARYING_COMPONENTS, &(rs.iMaxVaryingComponents));
+        //TODO...
+
+        // Print output
+        mglNextParamInteger(&out, "GL_MAX_RENDERBUFFER_SIZE", rs.iMaxRenderbufferSize);
+        //TODO...
+    }
+    else
+    #endif // /GL_VERSION_3_0
+    {
+        // Print output as unavailable
+        mglNextParamString(&out, "GL_MAX_RENDERBUFFER_SIZE", g_valNA);
         //TODO...
     }
 
+    // Query render states since OpenGL 3.2
+    mglNextHeadline(&out, "\nGL_VERSION_3_2");
+
+    #ifdef GL_VERSION_3_2
+    if (MGL_VERSION_MIN(3, 2))
+    {
+        // Query render states
+        glGetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, &(rs.iMaxGeometryInputComponents));
+        glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, &(rs.iMaxGeometryOutputComponents));
+        glGetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, &(rs.iMaxGeometryTextureImageUnits));
+        glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &(rs.iMaxGeometryUniformComponents));
+        //TODO...
+
+        // Print output
+        mglNextParamInteger(&out, "GL_MAX_GEOMETRY_INPUT_COMPONENTS", rs.iMaxGeometryInputComponents);
+        //TODO...
+    }
+    else
+    #endif
+    {
+        // Print output as unavailable
+        mglNextParamString(&out, "GL_MAX_RENDERBUFFER_SIZE", g_valNA);
+        //TODO...
+    }
+
+    //TODO:
+    // GL_VERSION_3_0, GL_VERSION_3_1, GL_VERSION_3_2, GL_VERSION_3_3, GL_VERSION_4_0
+
+    // Query render states since OpenGL 4.1
+    mglNextHeadline(&out, "\nGL_VERSION_4_1");
+
+    #ifdef GL_VERSION_4_1
+    if (MGL_VERSION_MIN(4, 1))
+    {
+        // Query render states
+        glGetIntegerv(GL_MAX_VARYING_VECTORS, &(rs.iMaxVaryingVectors));
+        glGetIntegerv(GL_MAX_VIEWPORTS, &(rs.iMaxViewports));
+        glGetIntegerv(GL_VIEWPORT_SUBPIXEL_BITS, &(rs.iViewportSubPixelBits));
+        glGetIntegerv(GL_VIEWPORT_BOUNDS_RANGE, &(rs.iViewportBoundsRange[0]));
+        glGetIntegerv(GL_LAYER_PROVOKING_VERTEX, &(rs.iLayerProvokingVertex));
+        glGetIntegerv(GL_VIEWPORT_INDEX_PROVOKING_VERTEX, &(rs.iViewportIndexProvokingVertex));
+
+        // Print output
+        mglNextParamInteger(&out, "GL_MAX_VARYING_VECTORS", rs.iMaxVaryingVectors);
+        mglNextParamInteger(&out, "GL_MAX_VIEWPORTS", rs.iMaxViewports);
+        mglNextParamInteger(&out, "GL_VIEWPORT_SUBPIXEL_BITS", rs.iViewportSubPixelBits);
+        mglNextParamIntegerArray(&out, "GL_VIEWPORT_BOUNDS_RANGE", rs.iViewportBoundsRange, 2, 2, 0);
+        mglNextParamEnum(&out, "GL_LAYER_PROVOKING_VERTEX", rs.iLayerProvokingVertex, mglProvokingVertexModeStr);
+        mglNextParamEnum(&out, "GL_VIEWPORT_INDEX_PROVOKING_VERTEX", rs.iViewportIndexProvokingVertex, mglProvokingVertexModeStr);
+    }
+    else
+    #endif // /GL_VERSION_4_1
+    {
+        // Print output as unavailable
+        mglNextParamString(&out, "GL_MAX_VARYING_VECTORS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VIEWPORTS", g_valNA);
+        mglNextParamString(&out, "GL_VIEWPORT_SUBPIXEL_BITS", g_valNA);
+        mglNextParamString(&out, "GL_VIEWPORT_BOUNDS_RANGE", g_valNA);
+        mglNextParamString(&out, "GL_LAYER_PROVOKING_VERTEX", g_valNA);
+        mglNextParamString(&out, "GL_VIEWPORT_INDEX_PROVOKING_VERTEX", g_valNA);
+    }
+
+    // Query render states since OpenGL 4.2
+    mglNextHeadline(&out, "\nGL_VERSION_4_2");
+
+    #ifdef GL_VERSION_4_2
+    if (MGL_VERSION_MIN(4, 2))
+    {
+        // Query render states
+        glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTERS, &(rs.iMaxCombinedAtomicCounters));
+        glGetIntegerv(GL_MAX_VERTEX_ATOMIC_COUNTERS, &(rs.iMaxVertexAtomicCounters));
+        glGetIntegerv(GL_MAX_TESS_CONTROL_ATOMIC_COUNTERS, &(rs.iMaxTessControlAtomicCounters));
+        glGetIntegerv(GL_MAX_TESS_EVALUATION_ATOMIC_COUNTERS, &(rs.iMaxTessEvaluationAtomicCounters));
+        glGetIntegerv(GL_MAX_GEOMETRY_ATOMIC_COUNTERS, &(rs.iMaxGeometryAtomicCounters));
+        glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTERS, &(rs.iMaxFragmentAtomicCounters));
+        glGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &(rs.iMinMapBufferAlignment));
+
+        // Print output
+        mglNextParamInteger(&out, "GL_MAX_COMBINED_ATOMIC_COUNTERS", rs.iMaxCombinedAtomicCounters);
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_ATOMIC_COUNTERS", rs.iMaxVertexAtomicCounters);
+        mglNextParamInteger(&out, "GL_MAX_TESS_CONTROL_ATOMIC_COUNTERS", rs.iMaxTessControlAtomicCounters);
+        mglNextParamInteger(&out, "GL_MAX_TESS_EVALUATION_ATOMIC_COUNTERS", rs.iMaxTessEvaluationAtomicCounters);
+        mglNextParamInteger(&out, "GL_MAX_GEOMETRY_ATOMIC_COUNTERS", rs.iMaxGeometryAtomicCounters);
+        mglNextParamInteger(&out, "GL_MAX_FRAGMENT_ATOMIC_COUNTERS", rs.iMaxFragmentAtomicCounters);
+        mglNextParamInteger(&out, "GL_MIN_MAP_BUFFER_ALIGNMENT", rs.iMinMapBufferAlignment);
+    }
+    else
+    #endif // /GL_VERSION_4_2
+    {
+        // Print output as unavailable
+        mglNextParamString(&out, "GL_MAX_COMBINED_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_TESS_CONTROL_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_TESS_EVALUATION_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_GEOMETRY_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAGMENT_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MIN_MAP_BUFFER_ALIGNMENT", g_valNA);
+    }
+
+    // Query render states since OpenGL 4.3
+    mglNextHeadline(&out, "\nGL_VERSION_4_3");
+
+    #ifdef GL_VERSION_4_3
+    if (MGL_VERSION_MIN(4, 3))
+    {
+        // Query render states
+        glGetIntegerv(GL_MAX_ELEMENT_INDEX, &(rs.iMaxElementIndex));
+        glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, &(rs.iMaxComputeUniformBlocks));
+        glGetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, &(rs.iMaxComputeTextureImageUnits));
+        glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_COMPONENTS, &(rs.iMaxComputeUniformComponents));
+        glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTERS, &(rs.iMaxComputeAtomicCounters));
+        glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS, &(rs.iMaxComputeAtomicCounterBuffers));
+        glGetIntegerv(GL_MAX_COMBINED_COMPUTE_UNIFORM_COMPONENTS, &(rs.iMaxCombinedComputeUniformComponents));
+        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_COUNT, &(rs.iMaxComputeWorkGroupCount[0]));
+        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &(rs.iMaxComputeWorkGroup));
+        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_SIZE, &(rs.iMaxComputeWorkGroupSize[0]));
+        glGetIntegerv(GL_DISPATCH_INDIRECT_BUFFER_BINDING, &(rs.iDispatchIndirectBufferBinding));
+        glGetIntegerv(GL_MAX_DEBUG_GROUP_STACK_DEPTH, &(rs.iMaxDebugGroupStackDepth));
+        glGetIntegerv(GL_DEBUG_GROUP_STACK_DEPTH, &(rs.iDebugGroupStackDepth));
+        glGetIntegerv(GL_MAX_LABEL_LENGTH, &(rs.iMaxLabelLength));
+        glGetIntegerv(GL_MAX_UNIFORM_LOCATIONS, &(rs.iMaxUniformLocations));
+        glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, &(rs.iMaxFramebufferWidth));
+        glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, &(rs.iMaxFramebufferHeight));
+        glGetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS, &(rs.iMaxFramebufferLayers));
+        glGetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &(rs.iMaxFramebufferSamples));
+        glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &(rs.iMaxVertexShaderStorageBlocks));
+        glGetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, &(rs.iMaxTessControlShaderStorageBlocks));
+        glGetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, &(rs.iMaxTessEvaluationShaderStorageBlocks));
+        glGetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, &(rs.iMaxGeometryShaderStorageBlocks));
+        glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &(rs.iMaxFragmentShaderStorageBlocks));
+        glGetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, &(rs.iMaxComputeShaderStorageBlocks));
+        glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &(rs.iTextureBufferOffsetAlignment));
+        mglGetIntegerStaticArray(GL_VERTEX_BINDING_DIVISOR, &(rs.iVertexBindingDivisor[0]), MGL_MAX_VERTEX_BUFFER_BINDINGS);
+        mglGetIntegerStaticArray(GL_VERTEX_BINDING_OFFSET, &(rs.iVertexBindingOffset[0]), MGL_MAX_VERTEX_BUFFER_BINDINGS);
+        mglGetIntegerStaticArray(GL_VERTEX_BINDING_STRIDE, &(rs.iVertexBindingStride[0]), MGL_MAX_VERTEX_BUFFER_BINDINGS);
+        glGetIntegerv(GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET, &(rs.iMaxVertexAttribRelativeOffset));
+        glGetIntegerv(GL_MAX_VERTEX_ATTRIB_BINDINGS, &(rs.iMaxVertexAttribBindings));
+
+        // Print output
+        mglNextParamUInteger(&out, "GL_MAX_ELEMENT_INDEX", (GLuint)(rs.iMaxElementIndex));
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_UNIFORM_BLOCKS", rs.iMaxComputeUniformBlocks);
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS", rs.iMaxComputeTextureImageUnits);
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_UNIFORM_COMPONENTS", rs.iMaxComputeUniformComponents);
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_ATOMIC_COUNTERS", rs.iMaxComputeAtomicCounters);
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS", rs.iMaxComputeAtomicCounterBuffers);
+        mglNextParamInteger(&out, "GL_MAX_COMBINED_COMPUTE_UNIFORM_COMPONENTS", rs.iMaxCombinedComputeUniformComponents);
+        mglNextParamIntegerArray(&out, "GL_MAX_COMPUTE_WORK_GROUP_COUNT", rs.iMaxComputeWorkGroupCount, 3, 3, 0);
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS", rs.iMaxComputeWorkGroup);
+        mglNextParamIntegerArray(&out, "GL_MAX_COMPUTE_WORK_GROUP_SIZE", rs.iMaxComputeWorkGroupSize, 3, 3, 0);
+        mglNextParamInteger(&out, "GL_DISPATCH_INDIRECT_BUFFER_BINDING", rs.iDispatchIndirectBufferBinding);
+        mglNextParamInteger(&out, "GL_MAX_DEBUG_GROUP_STACK_DEPTH", rs.iMaxDebugGroupStackDepth);
+        mglNextParamInteger(&out, "GL_DEBUG_GROUP_STACK_DEPTH", rs.iDebugGroupStackDepth);
+        mglNextParamInteger(&out, "GL_MAX_LABEL_LENGTH", rs.iMaxLabelLength);
+        mglNextParamInteger(&out, "GL_MAX_UNIFORM_LOCATIONS", rs.iMaxUniformLocations);
+        mglNextParamInteger(&out, "GL_MAX_FRAMEBUFFER_WIDTH", rs.iMaxFramebufferWidth);
+        mglNextParamInteger(&out, "GL_MAX_FRAMEBUFFER_HEIGHT", rs.iMaxFramebufferHeight);
+        mglNextParamInteger(&out, "GL_MAX_FRAMEBUFFER_LAYERS", rs.iMaxFramebufferLayers);
+        mglNextParamInteger(&out, "GL_MAX_FRAMEBUFFER_SAMPLES", rs.iMaxFramebufferSamples);
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS", rs.iMaxVertexShaderStorageBlocks);
+        mglNextParamInteger(&out, "GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS", rs.iMaxTessControlShaderStorageBlocks);
+        mglNextParamInteger(&out, "GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS", rs.iMaxTessEvaluationShaderStorageBlocks);
+        mglNextParamInteger(&out, "GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS", rs.iMaxGeometryShaderStorageBlocks);
+        mglNextParamInteger(&out, "GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS", rs.iMaxFragmentShaderStorageBlocks);
+        mglNextParamInteger(&out, "GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS", rs.iMaxComputeShaderStorageBlocks);
+        mglNextParamInteger(&out, "GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT", rs.iTextureBufferOffsetAlignment);
+        /*mglNextParamInteger(&out, "GL_VERTEX_BINDING_DIVISOR", rs.iVertexBindingDivisor);
+        mglNextParamInteger(&out, "GL_VERTEX_BINDING_OFFSET", rs.iVertexBindingDivisor);
+        mglNextParamInteger(&out, "GL_VERTEX_BINDING_STRIDE", rs.iVertexBindingDivisor);*/
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET", rs.iMaxVertexAttribRelativeOffset);
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIB_BINDINGS", rs.iMaxVertexAttribBindings);
+    }
+    else
+    #endif // /GL_VERSION_4_3
+    {
+        // Print output as unavailable
+        mglNextParamString(&out, "GL_MAX_ELEMENT_INDEX", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_UNIFORM_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_UNIFORM_COMPONENTS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_ATOMIC_COUNTERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMBINED_COMPUTE_UNIFORM_COMPONENTS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_WORK_GROUP_COUNT", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_WORK_GROUP_SIZE", g_valNA);
+        mglNextParamString(&out, "GL_DISPATCH_INDIRECT_BUFFER_BINDING", g_valNA);
+        mglNextParamString(&out, "GL_MAX_DEBUG_GROUP_STACK_DEPTH", g_valNA);
+        mglNextParamString(&out, "GL_DEBUG_GROUP_STACK_DEPTH", g_valNA);
+        mglNextParamString(&out, "GL_MAX_LABEL_LENGTH", g_valNA);
+        mglNextParamString(&out, "GL_MAX_UNIFORM_LOCATIONS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAMEBUFFER_WIDTH", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAMEBUFFER_HEIGHT", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAMEBUFFER_LAYERS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAMEBUFFER_SAMPLES", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS", g_valNA);
+        mglNextParamString(&out, "GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT", g_valNA);
+        mglNextParamString(&out, "GL_VERTEX_BINDING_DIVISOR", g_valNA);
+        mglNextParamString(&out, "GL_VERTEX_BINDING_OFFSET", g_valNA);
+        mglNextParamString(&out, "GL_VERTEX_BINDING_STRIDE", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET", g_valNA);
+        mglNextParamString(&out, "GL_MAX_VERTEX_ATTRIB_BINDINGS", g_valNA);
+    }
     // Query number of container items first
     glGetIntegerv(GL_NUM_EXTENSIONS, &(rs.iNumExtensions));
     glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &(rs.iNumProgramBinaryFormats));
@@ -1183,13 +1543,11 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     glGetBooleanv(GL_CULL_FACE, &(rs.bCullFace));
     glGetIntegerv(GL_CULL_FACE_MODE, &(rs.iCullFaceMode));
     glGetIntegerv(GL_CURRENT_PROGRAM, &(rs.iCurrentProgram));
-    glGetIntegerv(GL_DEBUG_GROUP_STACK_DEPTH, &(rs.iDebugGroupStackDepth));
     glGetDoublev(GL_DEPTH_CLEAR_VALUE, &(rs.dDepthClearValue));
     glGetIntegerv(GL_DEPTH_FUNC, &(rs.iDepthFunc));
     glGetDoublev(GL_DEPTH_RANGE, &(rs.dDepthRange[0]));
     glGetBooleanv(GL_DEPTH_TEST, &(rs.bDepthTest));
     glGetBooleanv(GL_DEPTH_WRITEMASK, &(rs.bDepthWriteMask));
-    glGetIntegerv(GL_DISPATCH_INDIRECT_BUFFER_BINDING, &(rs.iDispatchIndirectBufferBinding));
     glGetBooleanv(GL_DITHER, &(rs.bDither));
     glGetBooleanv(GL_DOUBLEBUFFER, &(rs.bDoubleBuffer));
     glGetIntegerv(GL_DRAW_BUFFER, &(rs.iDrawBuffer));
@@ -1199,77 +1557,36 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     glGetBooleanv(GL_LINE_SMOOTH, &(rs.bLineSmooth));
     glGetIntegerv(GL_LINE_SMOOTH_HINT, &(rs.iLineSmoothHint));
     glGetFloatv(GL_LINE_WIDTH, &(rs.fLineWidth));
-    glGetIntegerv(GL_LAYER_PROVOKING_VERTEX, &(rs.iLayerProvokingVertex));
     glGetIntegerv(GL_LOGIC_OP_MODE, &(rs.iLogicOpMode));
     glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &(rs.iMaxArrayTextureLayers));
     glGetIntegerv(GL_MAX_CLIP_DISTANCES, &(rs.iMaxClipDistances));
     glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &(rs.iMaxColorTextureSamples));
-    glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTERS, &(rs.iMaxCombinedAtomicCounters));
-    glGetIntegerv(GL_MAX_COMBINED_COMPUTE_UNIFORM_COMPONENTS, &(rs.iMaxCombinedComputeUniformComponents));
     glGetIntegerv(GL_MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS, &(rs.iMaxCombinedFragmentUniformComponents));
     glGetIntegerv(GL_MAX_COMBINED_GEOMETRY_UNIFORM_COMPONENTS, &(rs.iMaxCombinedGeometryUniformComponents));
     glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, &(rs.iMaxCombinedShaderStorageBlocks));
     glGetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, &(rs.iMaxCombinedUniformBlocks));
     glGetIntegerv(GL_MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS, &(rs.iMaxCombinedVertexUniformComponents));
-    glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTERS, &(rs.iMaxComputeAtomicCounters));
-    glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS, &(rs.iMaxComputeAtomicCounterBuffers));
-    glGetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, &(rs.iMaxComputeShaderStorageBlocks));
-    glGetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, &(rs.iMaxComputeTextureImageUnits));
-    glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, &(rs.iMaxComputeUniformBlocks));
-    glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_COMPONENTS, &(rs.iMaxComputeUniformComponents));
-    glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_COUNT, &(rs.iMaxComputeWorkGroupCount[0]));
-    glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &(rs.iMaxComputeWorkGroup));
-    glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_SIZE, &(rs.iMaxComputeWorkGroupSize[0]));
     glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &(rs.iMaxCubeMapTextureSize));
-    glGetIntegerv(GL_MAX_DEBUG_GROUP_STACK_DEPTH, &(rs.iMaxDebugGroupStackDepth));
     glGetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &(rs.iMaxDepthTextureSamples));
     glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &(rs.iMaxDualSourceDrawBuffers));
-    glGetIntegerv(GL_MAX_ELEMENT_INDEX, &(rs.iMaxElementIndex));
-    glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTERS, &(rs.iMaxFragmentAtomicCounters));
-    glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &(rs.iMaxFragmentShaderStorageBlocks));
     glGetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS, &(rs.iMaxFragmentInputComponents));
     glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &(rs.iMaxFragmentUniformVectors));
     glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &(rs.iMaxFragmentUniformBlocks));
-    glGetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, &(rs.iMaxFramebufferWidth));
-    glGetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, &(rs.iMaxFramebufferHeight));
-    glGetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS, &(rs.iMaxFramebufferLayers));
-    glGetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &(rs.iMaxFramebufferSamples));
-    glGetIntegerv(GL_MAX_GEOMETRY_ATOMIC_COUNTERS, &(rs.iMaxGeometryAtomicCounters));
-    glGetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, &(rs.iMaxGeometryShaderStorageBlocks));
-    glGetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, &(rs.iMaxGeometryInputComponents));
-    glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, &(rs.iMaxGeometryOutputComponents));
-    glGetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, &(rs.iMaxGeometryTextureImageUnits));
     glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_BLOCKS, &(rs.iMaxGeometryUniformBlocks));
-    glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS, &(rs.iMaxGeometryUniformComponents));
     glGetIntegerv(GL_MAX_INTEGER_SAMPLES, &(rs.iMaxIntegerSamples));
-    glGetIntegerv(GL_MAX_LABEL_LENGTH, &(rs.iMaxLabelLength));
     glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &(rs.iMaxProgramTexelOffest));
     glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &(rs.iMaxRectangleTextureSize));
-    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &(rs.iMaxRenderbufferSize));
     glGetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, &(rs.iMaxSampleMaskWords));
     glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &(rs.iMaxServerWaitTimeout));
     glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &(rs.iMaxShaderStorageBufferBindings));
-    glGetIntegerv(GL_MAX_TESS_CONTROL_ATOMIC_COUNTERS, &(rs.iMaxTessControlAtomicCounters));
-    glGetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, &(rs.iMaxTessControlShaderStorageBlocks));
-    glGetIntegerv(GL_MAX_TESS_EVALUATION_ATOMIC_COUNTERS, &(rs.iMaxTessEvaluationAtomicCounters));
-    glGetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, &(rs.iMaxTessEvaluationShaderStorageBlocks));
     glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &(rs.iMaxTextureBufferSize));
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &(rs.iMaxTextureSize));
     glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &(rs.iMaxUniformBufferBindings));
     glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &(rs.iMaxUniformBlockSize));
-    glGetIntegerv(GL_MAX_UNIFORM_LOCATIONS, &(rs.iMaxUniformLocations));
-    glGetIntegerv(GL_MAX_VARYING_COMPONENTS, &(rs.iMaxVaryingComponents));
-    glGetIntegerv(GL_MAX_VARYING_VECTORS, &(rs.iMaxVaryingVectors));
-    glGetIntegerv(GL_MAX_VERTEX_ATOMIC_COUNTERS, &(rs.iMaxVertexAtomicCounters));
-    glGetIntegerv(GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET, &(rs.iMaxVertexAttribRelativeOffset));
-    glGetIntegerv(GL_MAX_VERTEX_ATTRIB_BINDINGS, &(rs.iMaxVertexAttribBindings));
     glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &(rs.iMaxVertexOutputComponents));
-    glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &(rs.iMaxVertexShaderStorageBlocks));
     glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &(rs.iMaxVertexUniformBlocks));
     glGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS, &(rs.iMaxVertexUniformVectors));
     glGetIntegerv(GL_MAX_VIEWPORT_DIMS, &(rs.iMaxViewportDims[0]));
-    glGetIntegerv(GL_MAX_VIEWPORTS, &(rs.iMaxViewports));
-    glGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &(rs.iMinMapBufferAlignment));
     glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &(rs.iMinProgramTexelOffest));
     glGetIntegerv(GL_PACK_ALIGNMENT, &(rs.iPackAlignment));
     glGetBooleanv(GL_PACK_LSB_FIRST, &(rs.bPackLSBFirst));
@@ -1277,8 +1594,6 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     glGetIntegerv(GL_PACK_SKIP_PIXELS, &(rs.iPackSkipPixels));
     glGetIntegerv(GL_PACK_SKIP_ROWS, &(rs.iPackSkipRows));
     glGetBooleanv(GL_PACK_SWAP_BYTES, &(rs.bPackSwapBytes));
-    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &(rs.iPixelPackBufferBinding));
-    glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &(rs.iPixelUnpackBufferBinding));
     glGetIntegerv(GL_PRIMITIVE_RESTART_INDEX, &(rs.iPrimitiveRestartIndex));
     mglGetIntegerDynamicArray(GL_PROGRAM_BINARY_FORMATS, &(rs.iProgramBinaryFormats[0]), rs.iNumProgramBinaryFormats, MGL_MAX_PROGRAM_BINARY_FORMATS);
     glGetIntegerv(GL_PROGRAM_PIPELINE_BINDING, &(rs.iProgramPipelineBinding));
@@ -1323,7 +1638,6 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &(rs.iTextureBinding2DMultisampleArray));
     glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &(rs.iTextureBindingBuffer));
     glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &(rs.iTextureBindingRectangle));
-    glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &(rs.iTextureBufferOffsetAlignment));
     glGetInteger64i_v(GL_TIMESTAMP, 0, &(rs.iTimestamp));
     mglGetIntegerStaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, &(rs.iTransformFeedbackBufferBinding[0]), MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
     mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_SIZE, &(rs.iTransformFeedbackBufferSize[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
@@ -1339,13 +1653,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     glGetIntegerv(GL_UNPACK_SKIP_ROWS, &(rs.iUnpackSkipRows));
     glGetBooleanv(GL_UNPACK_SWAP_BYTES, &(rs.bUnpackSwapBytes));
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &(rs.iVertexArrayBinding));
-    mglGetIntegerStaticArray(GL_VERTEX_BINDING_DIVISOR, &(rs.iVertexBindingDivisor[0]), MGL_MAX_VERTEX_BUFFER_BINDINGS);
-    mglGetIntegerStaticArray(GL_VERTEX_BINDING_OFFSET, &(rs.iVertexBindingOffset[0]), MGL_MAX_VERTEX_BUFFER_BINDINGS);
-    mglGetIntegerStaticArray(GL_VERTEX_BINDING_STRIDE, &(rs.iVertexBindingStride[0]), MGL_MAX_VERTEX_BUFFER_BINDINGS);
     glGetIntegerv(GL_VIEWPORT, &(rs.iViewport[0]));
-    glGetIntegerv(GL_VIEWPORT_BOUNDS_RANGE, &(rs.iViewportBoundsRange[0]));
-    glGetIntegerv(GL_VIEWPORT_INDEX_PROVOKING_VERTEX, &(rs.iViewportIndexProvokingVertex));
-    glGetIntegerv(GL_VIEWPORT_SUBPIXEL_BITS, &(rs.iViewportSubPixelBits));
 
 #endif // /TODO
 
@@ -1380,11 +1688,14 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     // Merge all strings parts to the output string
     for (size_t i = 0; i < out.index; ++i)
     {
-        // Append string parts to output string
-        mglStringInternalAppend(s, &(out.first[i]));
-        mglStringInternalAppendSub(s, &s_spaces, 0, max_par_len - out.first[i].len);
-        mglStringInternalAppend(s, &(out.second[i]));
-        mglStringInternalAppendCStr(s, "\n");
+        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
+        {
+            // Append string parts to output string
+            mglStringInternalAppend(s, &(out.first[i]));
+            mglStringInternalAppendSub(s, &s_spaces, 0, max_par_len - out.first[i].len);
+            mglStringInternalAppend(s, &(out.second[i]));
+            mglStringInternalAppendCStr(s, "\n");
+        }
 
         // Free string parts
         mglStringInternalFree(&(out.first[i]));
