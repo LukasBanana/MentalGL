@@ -6,9 +6,9 @@
  *  - Lukas Hermanns (Creator)
  *
  * Version History:
- *  - v1.00a:
+ *  - v1.00:
  *      First release
- *      Main functions: mglQueryRenderState, mglAnalyzeIssues
+ *      Supported main functions: mglQueryRenderState
  */
 
 #ifndef MENTAL_GL_H
@@ -33,6 +33,7 @@ typedef struct MGLQueryFormatting
 {
     char                    separator;      // Character to separate the attributes from their values. By default ' '.
     size_t                  distance;       // Distances (in number of characters) between the longest attribute name and the attribute values. By default 1.
+    size_t                  array_limit;    // Limit of characters for an array. If an array exceeds this limit, it will be printed into multiple lines, one for each element. By default 200.
     enum MGLFormattingOrder order;          // Specifies the formatting order (if sorted for instance). By default MGLFormattingOrderDefault.
     int                     enable_hex;     // Specifies whether unknown enumerations shall be printed as hex codes (if != 0). By default 1.
     const char*             filter;         // Optional filter to only output parameters which contain this string. By default NULL.
@@ -49,7 +50,7 @@ Usage example:
 
 // Do OpenGL stuff ...
 
-// Query current OpenGL state (ignore optional formatting descriptor)
+// Query current OpenGL state (ignore optional formatting descriptor, otherwise see 'MGLQueryFormatting' structure)
 MGLString s = mglQueryRenderState(NULL);
 
 // Print result
@@ -60,6 +61,8 @@ mglFreeString(s);
 */
 MGLString mglQueryRenderState(const MGLQueryFormatting* formatting);
 
+#if 0//TODO: not supported yet
+
 // Enumeration of a couple of issues with the OpenGL render state the function 'pglAnalayzeIssues' can analyze.
 enum MGLIssue
 {
@@ -69,6 +72,8 @@ enum MGLIssue
 
 // Returns a descriptive string with information why the specified issue may occur.
 MGLString mglAnalyzeIssues(enum MGLIssue issue);
+
+#endif
 
 // Returns the null-terminated string from the specified opaque object.
 const char* mglGetString(MGLString s);
@@ -119,6 +124,7 @@ void mglFreeString(MGLString s);
 #endif
 
 #define MGL_STRING_MIN_CAPACITY                     16
+#define MGL_STRING_NPOS                             (size_t)~0
 
 #define MGL_MAX_COMPRESSED_TEXTURE_FORMATS          128
 #define MGL_MAX_PROGRAM_BINARY_FORMATS              16
@@ -562,13 +568,16 @@ static void mglStringInternalAppend(MGLStringInternal* s, const MGLStringInterna
 // Appends the specified appendix sub-string (with offset and length) to the internal string object
 static void mglStringInternalAppendSub(MGLStringInternal* s, const MGLStringInternal* appendix, size_t off, size_t len)
 {
-    if (s && appendix && appendix->len > off)
+    if (s && appendix && appendix->len > off && len > 0)
     {
         // Resize string and copy appendix into new area
         size_t lhs_len = s->len;
         size_t rhs_len = MGL_MIN(len, appendix->len - off);
-        mglStringInternalResize(s, lhs_len + rhs_len, 0);
-        memcpy(s->buf + lhs_len, appendix->buf + off, rhs_len);
+        if (rhs_len > 0)
+        {
+            mglStringInternalResize(s, lhs_len + rhs_len, 0);
+            memcpy(s->buf + lhs_len, appendix->buf + off, rhs_len);
+        }
     }
 }
 
@@ -583,6 +592,20 @@ static void mglStringInternalAppendCStr(MGLStringInternal* s, const char* append
         mglStringInternalResize(s, lhs_len + rhs_len, 0);
         memcpy(s->buf + lhs_len, appendix, rhs_len);
     }
+}
+
+static size_t mglStringInternalFindChar(const MGLStringInternal* s, char search_char, size_t off, size_t len)
+{
+    if (s)
+    {
+        len = MGL_MIN(len, s->len);
+        for (; off < len; ++off)
+        {
+            if (s->buf[off] == search_char)
+                return off;
+        }
+    }
+    return MGL_STRING_NPOS;
 }
 
 static void mglGetIntegers(const GLenum* pnames, GLint* data, GLuint count)
@@ -1756,7 +1779,7 @@ static int mglCompareOutputPair(const void* lhs, const void* rhs)
 MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
 {
     // Internal constnat parameters
-    static const MGLQueryFormatting g_formattingDefault     = { ' ', 1, MGLFormattingOrderDefault, 1, NULL };
+    static const MGLQueryFormatting g_formattingDefault     = { ' ', 1, 200, MGLFormattingOrderDefault, 1, NULL };
     static const char*              g_valNA                 = "n/a";
     static const char*              g_valNotYetImpl         = "< not yet implemented >";
     static const GLenum             g_drawBufferPnames[16]  = { GL_DRAW_BUFFER0, GL_DRAW_BUFFER1, GL_DRAW_BUFFER2, GL_DRAW_BUFFER3,
@@ -2129,15 +2152,9 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_RENDERBUFFER_BINDING", rs.iRenderbufferBinding);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_1D_ARRAY", rs.iTextureBinding1DArray);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_2D_ARRAY", rs.iTextureBinding2DArray);
-        #if 1//TODO
         mglNextParamIntegerArray(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_BINDING", rs.iTransformFeedbackBufferBinding, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, 0);
         mglNextParamInteger64Array(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_SIZE", rs.iTransformFeedbackBufferSize, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
         mglNextParamInteger64Array(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_START", rs.iTransformFeedbackBufferStart, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
-        #else
-        MGL_PARAM_NOT_YET_IMPL( GL_TRANSFORM_FEEDBACK_BUFFER_BINDING );
-        MGL_PARAM_NOT_YET_IMPL( GL_TRANSFORM_FEEDBACK_BUFFER_SIZE );
-        MGL_PARAM_NOT_YET_IMPL( GL_TRANSFORM_FEEDBACK_BUFFER_START );
-        #endif
         mglNextParamInteger(&out, "GL_VERTEX_ARRAY_BINDING", rs.iVertexArrayBinding);
     }
     else
@@ -2187,15 +2204,9 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_PRIMITIVE_RESTART_INDEX", rs.iPrimitiveRestartIndex);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_BUFFER", rs.iTextureBindingBuffer);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_RECTANGLE", rs.iTextureBindingRectangle);
-        #if 0//TODO
-        mglGetIntegerStaticArray(&out, "GL_UNIFORM_BUFFER_BINDING", rs.iUniformBufferBinding[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(&out, "GL_UNIFORM_BUFFER_SIZE", rs.iUniformBufferSize[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(&out, "GL_UNIFORM_BUFFER_START", rs.iUniformBufferStart[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
-        #else
-        MGL_PARAM_NOT_YET_IMPL( GL_UNIFORM_BUFFER_BINDING );
-        MGL_PARAM_NOT_YET_IMPL( GL_UNIFORM_BUFFER_SIZE );
-        MGL_PARAM_NOT_YET_IMPL( GL_UNIFORM_BUFFER_START );
-        #endif
+        mglNextParamIntegerArray(&out, "GL_UNIFORM_BUFFER_BINDING", rs.iUniformBufferBinding, MGL_MAX_UNIFORM_BUFFER_BINDINGS, MGL_MAX_UNIFORM_BUFFER_BINDINGS, 0);
+        mglNextParamInteger64Array(&out, "GL_UNIFORM_BUFFER_SIZE", rs.iUniformBufferSize, MGL_MAX_UNIFORM_BUFFER_BINDINGS, MGL_MAX_UNIFORM_BUFFER_BINDINGS);
+        mglNextParamInteger64Array(&out, "GL_UNIFORM_BUFFER_START", rs.iUniformBufferStart, MGL_MAX_UNIFORM_BUFFER_BINDINGS, MGL_MAX_UNIFORM_BUFFER_BINDINGS);
         mglNextParamInteger(&out, "GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT", rs.iUniformBufferOffsetAlignment);
     }
     else
@@ -2476,7 +2487,10 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     size_t max_par_len = 0;
 
     for (size_t i = 0; i < out.index; ++i)
-        max_par_len = MGL_MAX(max_par_len, out.first[i].len);
+    {
+        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
+            max_par_len = MGL_MAX(max_par_len, out.first[i].len);
+    }
 
     max_par_len += formatting->distance;
 
@@ -2485,16 +2499,14 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
 
     for (size_t i = 0; i < out.index; ++i)
     {
-        out_cap += out.first[i].len;
-        out_cap += (max_par_len - out.first[i].len);
-        out_cap += out.second[i].len;
-        out_cap += 1;
+        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
+        {
+            out_cap += out.first[i].len;
+            out_cap += (max_par_len - out.first[i].len);
+            out_cap += out.second[i].len;
+            out_cap += 1;
+        }
     }
-
-    // Allocate string with spaces to separate parameters and values nicely
-    MGLStringInternal s_spaces;
-    mglStringInternalInit(&s_spaces, max_par_len + 1);
-    mglStringInternalResize(&s_spaces, max_par_len, formatting->separator);
 
     // Allocate output string
     MGLStringInternal* s = MGL_MALLOC(MGLStringInternal);
@@ -2520,9 +2532,39 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         if (formatting->filter == NULL || strstr(out.first[out_i].buf, formatting->filter) != NULL)
         {
             // Append string parts to output string
-            mglStringInternalAppend(s, &(out.first[out_i]));
-            mglStringInternalAppendSub(s, &s_spaces, 0, max_par_len - out.first[out_i].len);
-            mglStringInternalAppend(s, &(out.second[out_i]));
+            const MGLStringInternal* cur_par = &(out.first[out_i]);
+            const MGLStringInternal* cur_val = &(out.second[out_i]);
+            const size_t cur_spaces_len = max_par_len - out.first[out_i].len;
+
+            mglStringInternalAppend(s, cur_par);
+            mglStringInternalResize(s, s->len + cur_spaces_len, formatting->separator);
+
+            if (cur_val->len > formatting->array_limit && cur_val->buf[cur_val->len - 1] == '}')
+            {
+                // Append string in multiple lines, one for each element
+                size_t off = 0, next_off = 0;
+
+                while (off < cur_val->len)
+                {
+                    // Find end of current element
+                    next_off = mglStringInternalFindChar(cur_val, ',', off, MGL_STRING_NPOS);
+                    if (next_off != MGL_STRING_NPOS)
+                    {
+                        mglStringInternalAppendSub(s, cur_val, off, next_off - off + 1);
+                        mglStringInternalAppendCStr(s, "\n");
+                        mglStringInternalResize(s, s->len + cur_par->len + cur_spaces_len + 1, formatting->separator);
+                        off = next_off + 1;
+                    }
+                    else
+                    {
+                        mglStringInternalAppendSub(s, cur_val, off, MGL_STRING_NPOS);
+                        break;
+                    }
+                }
+            }
+            else
+                mglStringInternalAppend(s, cur_val);
+
             mglStringInternalAppendCStr(s, "\n");
         }
 
@@ -2531,14 +2573,14 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglStringInternalFree(&(out.second[out_i]));
     }
 
-    mglStringInternalFree(&s_spaces);
-
     return (MGLString)s;
 
     #undef MGL_VERSION
     #undef MGL_VERSION_MIN
     #undef MGL_PARAM_UNAVAIL
 }
+
+#if 0//TODO: not supported set
 
 MGLString mglAnalyzeIssues(enum MGLIssue issue)
 {
@@ -2548,6 +2590,8 @@ MGLString mglAnalyzeIssues(enum MGLIssue issue)
 
     return (MGLString)s;
 }
+
+#endif
 
 const char* mglGetString(MGLString s)
 {
