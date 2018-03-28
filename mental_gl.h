@@ -1140,6 +1140,50 @@ static const char* mglCompressedTextureInternalFormatStr(GLenum param)
     return NULL;
 }
 
+#ifdef GL_VERSION_1_3
+
+static const char* mglTextureStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_TEXTURE0 );
+        MGL_CASE2STR( GL_TEXTURE1 );
+        MGL_CASE2STR( GL_TEXTURE2 );
+        MGL_CASE2STR( GL_TEXTURE3 );
+        MGL_CASE2STR( GL_TEXTURE4 );
+        MGL_CASE2STR( GL_TEXTURE5 );
+        MGL_CASE2STR( GL_TEXTURE6 );
+        MGL_CASE2STR( GL_TEXTURE7 );
+        MGL_CASE2STR( GL_TEXTURE8 );
+        MGL_CASE2STR( GL_TEXTURE9 );
+        MGL_CASE2STR( GL_TEXTURE10 );
+        MGL_CASE2STR( GL_TEXTURE11 );
+        MGL_CASE2STR( GL_TEXTURE12 );
+        MGL_CASE2STR( GL_TEXTURE13 );
+        MGL_CASE2STR( GL_TEXTURE14 );
+        MGL_CASE2STR( GL_TEXTURE15 );
+        MGL_CASE2STR( GL_TEXTURE16 );
+        MGL_CASE2STR( GL_TEXTURE17 );
+        MGL_CASE2STR( GL_TEXTURE18 );
+        MGL_CASE2STR( GL_TEXTURE19 );
+        MGL_CASE2STR( GL_TEXTURE20 );
+        MGL_CASE2STR( GL_TEXTURE21 );
+        MGL_CASE2STR( GL_TEXTURE22 );
+        MGL_CASE2STR( GL_TEXTURE23 );
+        MGL_CASE2STR( GL_TEXTURE24 );
+        MGL_CASE2STR( GL_TEXTURE25 );
+        MGL_CASE2STR( GL_TEXTURE26 );
+        MGL_CASE2STR( GL_TEXTURE27 );
+        MGL_CASE2STR( GL_TEXTURE28 );
+        MGL_CASE2STR( GL_TEXTURE29 );
+        MGL_CASE2STR( GL_TEXTURE30 );
+        MGL_CASE2STR( GL_TEXTURE31 );
+    }
+    return NULL;
+}
+
+#endif // /GL_VERSION_1_3
+
 #ifdef GL_VERSION_1_4
 
 static const char* mglBlendFuncStr(GLenum param)
@@ -1961,7 +2005,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamEnumArray(&out, "GL_COMPRESSED_TEXTURE_FORMATS", rs.iCompressedTextureFormats, (size_t)rs.iNumCompressedTextureFormats, MGL_MAX_COMPRESSED_TEXTURE_FORMATS, mglCompressedTextureInternalFormatStr);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_CUBE_MAP", rs.iTextureBindingCubeMap);
         mglNextParamEnum(&out, "GL_TEXTURE_COMPRESSION_HINT", rs.iTextureCompressionHint, mglHintModeStr);
-        mglNextParamInteger(&out, "GL_ACTIVE_TEXTURE", rs.iActiveTexture);
+        mglNextParamEnum(&out, "GL_ACTIVE_TEXTURE", rs.iActiveTexture, mglTextureStr);
         mglNextParamInteger(&out, "GL_MAX_CUBE_MAP_TEXTURE_SIZE", rs.iMaxCubeMapTextureSize);
         mglNextParamInteger(&out, "GL_SAMPLE_BUFFERS", rs.iSampleBuffers);
         mglNextParamFloat(&out, "GL_SAMPLE_COVERAGE_VALUE", rs.fSampleCoverageValue);
