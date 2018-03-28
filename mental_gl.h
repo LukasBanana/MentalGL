@@ -120,15 +120,15 @@ void mglFreeString(MGLString s);
 
 #define MGL_STRING_MIN_CAPACITY                     16
 
-#define MGL_MAX_COMPRESSED_TEXTURE_FORMATS          64
-#define MGL_MAX_PROGRAM_BINARY_FORMATS              64
-#define MGL_MAX_SHADER_BINARY_FORMATS               64
-#define MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS      64
-#define MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS  64
-#define MGL_MAX_UNIFORM_BUFFER_BINDINGS             64
-#define MGL_MAX_VERTEX_BUFFER_BINDINGS              64
-#define MGL_MAX_TEXTURE_LAYERS                      32
+#define MGL_MAX_COMPRESSED_TEXTURE_FORMATS          128
+#define MGL_MAX_PROGRAM_BINARY_FORMATS              16
+#define MGL_MAX_SHADER_BINARY_FORMATS               16
+#define MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS      32
+#define MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS  16
+#define MGL_MAX_UNIFORM_BUFFER_BINDINGS             32
+#define MGL_MAX_VERTEX_BUFFER_BINDINGS              32
 
+#define MGL_MAX_TEXTURE_LAYERS                      32
 #define MGL_MAX_NUM_RENDER_STATES                   256
 
 
@@ -264,6 +264,7 @@ typedef struct MGLRenderStates
     GLint       iMaxTextureImageUnits;                                                          // GL_MAX_TEXTURE_IMAGE_UNITS
     GLfloat     fMaxTextureLODBias;                                                             // GL_MAX_TEXTURE_LOD_BIAS
     GLint       iMaxTextureSize;                                                                // GL_MAX_TEXTURE_SIZE
+    GLint       iMaxTransformFeedbackBuffers;                                                   // GL_MAX_TRANSFORM_FEEDBACK_BUFFERS
     GLint       iMaxUniformBufferBindings;                                                      // GL_MAX_UNIFORM_BUFFER_BINDINGS
     GLint       iMaxUniformBlockSize;                                                           // GL_MAX_UNIFORM_BLOCK_SIZE
     GLint       iMaxUniformLocations;                                                           // GL_MAX_UNIFORM_LOCATIONS
@@ -365,8 +366,8 @@ typedef struct MGLRenderStates
     GLint       iTextureBufferOffsetAlignment;                                                  // GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
     GLint64     iTimestamp;                                                                     // GL_TIMESTAMP
     GLint       iTransformFeedbackBufferBinding[MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS];    // GL_TRANSFORM_FEEDBACK_BUFFER_BINDING
-    GLint64     iTransformFeedbackBufferSize[MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS];           // GL_TRANSFORM_FEEDBACK_BUFFER_SIZE
-    GLint64     iTransformFeedbackBufferStart[MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS];          // GL_TRANSFORM_FEEDBACK_BUFFER_START
+    GLint64     iTransformFeedbackBufferSize[MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS];       // GL_TRANSFORM_FEEDBACK_BUFFER_SIZE
+    GLint64     iTransformFeedbackBufferStart[MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS];      // GL_TRANSFORM_FEEDBACK_BUFFER_START
     GLint       iUniformBufferBinding[MGL_MAX_UNIFORM_BUFFER_BINDINGS];                         // GL_UNIFORM_BUFFER_BINDING
     GLint       iUniformBufferOffsetAlignment;                                                  // GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT
     GLint64     iUniformBufferSize[MGL_MAX_UNIFORM_BUFFER_BINDINGS];                            // GL_UNIFORM_BUFFER_SIZE
@@ -734,6 +735,74 @@ static void mglNextParamIntegerArray(MGLStringPairArray* str_array, const char* 
     ++(str_array->index);
 }
 
+static void mglNextParamEnumArray(MGLStringPairArray* str_array, const char* par, const GLint* val, size_t count, size_t limit, MGLEnumToStringProc proc)
+{
+    MGLStringInternal* out_par = &(str_array->first[str_array->index]);
+    MGLStringInternal* out_val = &(str_array->second[str_array->index]);
+
+    mglStringInternalInitWith(out_par, par);
+    mglStringInternalInit(out_val, 0);
+
+    mglStringInternalAppendCStr(out_val, "{ ");
+
+    size_t n = MGL_MIN(count, limit);
+
+    for (size_t i = 0; i < n; ++i)
+    {
+        const char* s_val = proc(val[i]);
+        if (!s_val)
+        {
+            char s_hex[11];
+            mglEnumToHex(s_hex, (unsigned)val[i]);
+            mglStringInternalAppendCStr(out_val, s_hex);
+        }
+        else
+            mglStringInternalAppendCStr(out_val, s_val);
+
+        if (i + 1 < n)
+            mglStringInternalAppendCStr(out_val, ", ");
+    }
+
+    if (count > limit)
+        mglStringInternalAppendCStr(out_val, ", ... ");
+
+    mglStringInternalAppendCStr(out_val, " }");
+
+    ++(str_array->index);
+}
+
+static void mglNextParamInteger64Array(MGLStringPairArray* str_array, const char* par, const GLint64* val, size_t count, size_t limit)
+{
+    char s_val[32];
+
+    MGLStringInternal* out_par = &(str_array->first[str_array->index]);
+    MGLStringInternal* out_val = &(str_array->second[str_array->index]);
+
+    mglStringInternalInitWith(out_par, par);
+    mglStringInternalInit(out_val, 0);
+
+    mglStringInternalAppendCStr(out_val, "{ ");
+
+    size_t n = MGL_MIN(count, limit);
+
+    for (size_t i = 0; i < n; ++i)
+    {
+        sprintf(s_val, "%lli", val[i]);
+
+        mglStringInternalAppendCStr(out_val, s_val);
+
+        if (i + 1 < n)
+            mglStringInternalAppendCStr(out_val, ", ");
+    }
+
+    if (count > limit)
+        mglStringInternalAppendCStr(out_val, ", ... ");
+
+    mglStringInternalAppendCStr(out_val, " }");
+
+    ++(str_array->index);
+}
+
 static void mglNextParamBitfield(MGLStringPairArray* str_array, const char* par, GLbitfield val, size_t count, MGLEnumToStringProc proc)
 {
     size_t num_fields = 0;
@@ -801,7 +870,6 @@ static void mglNextParamFloatArray(MGLStringPairArray* str_array, const char* pa
 
 static void mglNextParamDoubleArray(MGLStringPairArray* str_array, const char* par, const GLdouble* val, size_t count)
 {
-    double val_d;
     char s_val[64];
 
     MGLStringInternal* out_par = &(str_array->first[str_array->index]);
@@ -895,6 +963,148 @@ static const char* mglLogicOpModeStr(GLenum param)
         MGL_CASE2STR( GL_AND_INVERTED );
         MGL_CASE2STR( GL_OR_REVERSE );
         MGL_CASE2STR( GL_OR_INVERTED );
+    }
+    return NULL;
+}
+
+static const char* mglCompressedTextureInternalFormatStr(GLenum param)
+{
+    switch (param)
+    {
+        #if defined GL_VERSION_1_3
+        MGL_CASE2STR( GL_COMPRESSED_ALPHA );
+        MGL_CASE2STR( GL_COMPRESSED_LUMINANCE );
+        MGL_CASE2STR( GL_COMPRESSED_LUMINANCE_ALPHA );
+        MGL_CASE2STR( GL_COMPRESSED_INTENSITY );
+        MGL_CASE2STR( GL_COMPRESSED_RGB );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA );
+        #elif defined GL_ARB_texture_compression
+        MGL_CASE2STR( GL_COMPRESSED_ALPHA_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_LUMINANCE_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_LUMINANCE_ALPHA_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_INTENSITY_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_RGB_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ARB );
+        #endif
+
+        #if defined GL_VERSION_3_0
+        MGL_CASE2STR( GL_COMPRESSED_RED_RGTC1 );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_RED_RGTC1 );
+        MGL_CASE2STR( GL_COMPRESSED_RG_RGTC2 );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_RG_RGTC2 );
+        #elif defined GL_EXT_texture_compression_rgtc
+        MGL_CASE2STR( GL_COMPRESSED_RED_RGTC1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_RED_RGTC1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_RED_GREEN_RGTC2_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT );
+        #endif
+
+        #if defined GL_VERSION_4_2
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_BPTC_UNORM );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM );
+        MGL_CASE2STR( GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT );
+        MGL_CASE2STR( GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT );
+        #elif defined GL_ARB_texture_compression_bptc
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_BPTC_UNORM_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB );
+        MGL_CASE2STR( GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB );
+        #endif
+
+        #if defined GL_VERSION_4_3
+        MGL_CASE2STR( GL_COMPRESSED_RGB8_ETC2 );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ETC2 );
+        MGL_CASE2STR( GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2 );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2 );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA8_ETC2_EAC );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC );
+        MGL_CASE2STR( GL_COMPRESSED_R11_EAC );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_R11_EAC );
+        MGL_CASE2STR( GL_COMPRESSED_RG11_EAC );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_RG11_EAC );
+        #endif
+
+        #if defined GL_KHR_texture_compression_astc_hdr
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_4x4_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_5x4_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_5x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_6x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_6x6_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_8x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_8x6_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_8x8_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_10x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_10x6_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_10x8_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_10x10_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_12x10_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_ASTC_12x12_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR );
+        #endif
+
+        #if defined GL_3DFX_texture_compression_FXT1
+        MGL_CASE2STR( GL_COMPRESSED_RGB_FXT1_3DFX );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_FXT1_3DFX );
+        #endif
+
+        #if defined GL_EXT_texture_compression_latc
+        MGL_CASE2STR( GL_COMPRESSED_LUMINANCE_LATC1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_LUMINANCE_LATC1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_LUMINANCE_ALPHA_LATC2_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SIGNED_LUMINANCE_ALPHA_LATC2_EXT );
+        #endif
+
+        #if defined GL_EXT_texture_compression_s3tc
+        MGL_CASE2STR( GL_COMPRESSED_RGB_S3TC_DXT1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_S3TC_DXT1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_S3TC_DXT3_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_RGBA_S3TC_DXT5_EXT );
+        #endif
+
+        #if defined GL_EXT_texture_sRGB
+        MGL_CASE2STR( GL_SRGB_EXT );
+        MGL_CASE2STR( GL_SRGB8_EXT );
+        MGL_CASE2STR( GL_SRGB_ALPHA_EXT );
+        MGL_CASE2STR( GL_SRGB8_ALPHA8_EXT );
+        MGL_CASE2STR( GL_SLUMINANCE_ALPHA_EXT );
+        MGL_CASE2STR( GL_SLUMINANCE8_ALPHA8_EXT );
+        MGL_CASE2STR( GL_SLUMINANCE_EXT );
+        MGL_CASE2STR( GL_SLUMINANCE8_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_ALPHA_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SLUMINANCE_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SLUMINANCE_ALPHA_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_S3TC_DXT1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT );
+        MGL_CASE2STR( GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT );
+        #endif
+
+        #if defined GL_OES_compressed_paletted_texture
+        MGL_CASE2STR( GL_PALETTE4_RGB8_OES );
+        MGL_CASE2STR( GL_PALETTE4_RGBA8_OES );
+        MGL_CASE2STR( GL_PALETTE4_R5_G6_B5_OES );
+        MGL_CASE2STR( GL_PALETTE4_RGBA4_OES );
+        MGL_CASE2STR( GL_PALETTE4_RGB5_A1_OES );
+        MGL_CASE2STR( GL_PALETTE8_RGB8_OES );
+        MGL_CASE2STR( GL_PALETTE8_RGBA8_OES );
+        MGL_CASE2STR( GL_PALETTE8_R5_G6_B5_OES );
+        MGL_CASE2STR( GL_PALETTE8_RGBA4_OES );
+        MGL_CASE2STR( GL_PALETTE8_RGB5_A1_OES );
+        #endif
     }
     return NULL;
 }
@@ -1341,8 +1551,8 @@ static void mglGetGLRenderStates(MGLRenderStates* rs)
         glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &(rs->iTextureBinding1DArray));
         glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &(rs->iTextureBinding2DArray));
         mglGetIntegerStaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, &(rs->iTransformFeedbackBufferBinding[0]), MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_SIZE, &(rs->iTransformFeedbackBufferSize[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_START, &(rs->iTransformFeedbackBufferStart[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
+        mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_SIZE, &(rs->iTransformFeedbackBufferSize[0]), MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
+        mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_START, &(rs->iTransformFeedbackBufferStart[0]), MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &(rs->iVertexArrayBinding));
     }
     #endif // /GL_VERSION_3_0
@@ -1409,7 +1619,7 @@ static void mglGetGLRenderStates(MGLRenderStates* rs)
     {
         glGetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, &(rs->iMaxDualSourceDrawBuffers));
         glGetIntegerv(GL_SAMPLER_BINDING, &(rs->iSamplerBinding));
-        glGetInteger64i_v(GL_TIMESTAMP, 0, &(rs->iTimestamp));
+        glGetInteger64v(GL_TIMESTAMP, &(rs->iTimestamp));
     }
     #endif // /GL_VERSION_3_3
 
@@ -1420,7 +1630,7 @@ static void mglGetGLRenderStates(MGLRenderStates* rs)
     #ifdef GL_VERSION_4_0
     if (MGL_VERSION_MIN(4, 0))
     {
-        //TODO...
+        glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &(rs->iMaxTransformFeedbackBuffers));
     }
     #endif // /GL_VERSION_4_0
 
@@ -1482,9 +1692,9 @@ static void mglGetGLRenderStates(MGLRenderStates* rs)
         glGetIntegerv(GL_MAX_COMPUTE_UNIFORM_COMPONENTS, &(rs->iMaxComputeUniformComponents));
         glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTERS, &(rs->iMaxComputeAtomicCounters));
         glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS, &(rs->iMaxComputeAtomicCounterBuffers));
-        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_COUNT, &(rs->iMaxComputeWorkGroupCount[0]));
+        mglGetIntegerStaticArray(GL_MAX_COMPUTE_WORK_GROUP_COUNT, &(rs->iMaxComputeWorkGroupCount[0]), 3);
         glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &(rs->iMaxComputeWorkGroup));
-        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_SIZE, &(rs->iMaxComputeWorkGroupSize[0]));
+        mglGetIntegerStaticArray(GL_MAX_COMPUTE_WORK_GROUP_SIZE, &(rs->iMaxComputeWorkGroupSize[0]), 3);
         glGetIntegerv(GL_DISPATCH_INDIRECT_BUFFER_BINDING, &(rs->iDispatchIndirectBufferBinding));
         glGetIntegerv(GL_MAX_DEBUG_GROUP_STACK_DEPTH, &(rs->iMaxDebugGroupStackDepth));
         glGetIntegerv(GL_DEBUG_GROUP_STACK_DEPTH, &(rs->iDebugGroupStackDepth));
@@ -1548,6 +1758,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     // Internal constnat parameters
     static const MGLQueryFormatting g_formattingDefault     = { ' ', 1, MGLFormattingOrderDefault, 1, NULL };
     static const char*              g_valNA                 = "n/a";
+    static const char*              g_valNotYetImpl         = "< not yet implemented >";
     static const GLenum             g_drawBufferPnames[16]  = { GL_DRAW_BUFFER0, GL_DRAW_BUFFER1, GL_DRAW_BUFFER2, GL_DRAW_BUFFER3,
                                                                 GL_DRAW_BUFFER4, GL_DRAW_BUFFER5, GL_DRAW_BUFFER6, GL_DRAW_BUFFER7,
                                                                 GL_DRAW_BUFFER8, GL_DRAW_BUFFER9, GL_DRAW_BUFFER10, GL_DRAW_BUFFER11,
@@ -1574,6 +1785,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     #define MGL_VERSION(MAJOR, MINOR)       (((MAJOR) << 16) | (MINOR))
     #define MGL_VERSION_MIN(MAJOR, MINOR)   (MGL_VERSION(rs.iMajorVersion, rs.iMinorVersion) >= MGL_VERSION(MAJOR, MINOR))
     #define MGL_PARAM_UNAVAIL(NAME)         mglNextParamString(&out, #NAME, g_valNA)
+    #define MGL_PARAM_NOT_YET_IMPL(NAME)    mglNextParamString(&out, #NAME, g_valNotYetImpl)
 
     // *****************************************************************
     //      GL_VERSION_1_0
@@ -1715,17 +1927,15 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     if (MGL_VERSION_MIN(1, 3))
     {
         mglNextParamInteger(&out, "GL_NUM_COMPRESSED_TEXTURE_FORMATS", rs.iNumCompressedTextureFormats);
-        mglNextParamIntegerArray(&out, "GL_COMPRESSED_TEXTURE_FORMATS", rs.iCompressedTextureFormats, (size_t)rs.iNumCompressedTextureFormats, MGL_MAX_COMPRESSED_TEXTURE_FORMATS, formatting->enable_hex);
+        mglNextParamEnumArray(&out, "GL_COMPRESSED_TEXTURE_FORMATS", rs.iCompressedTextureFormats, (size_t)rs.iNumCompressedTextureFormats, MGL_MAX_COMPRESSED_TEXTURE_FORMATS, mglCompressedTextureInternalFormatStr);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_CUBE_MAP", rs.iTextureBindingCubeMap);
         mglNextParamEnum(&out, "GL_TEXTURE_COMPRESSION_HINT", rs.iTextureCompressionHint, mglHintModeStr);
         mglNextParamInteger(&out, "GL_ACTIVE_TEXTURE", rs.iActiveTexture);
         mglNextParamInteger(&out, "GL_MAX_CUBE_MAP_TEXTURE_SIZE", rs.iMaxCubeMapTextureSize);
-        #if 0
-        glGetIntegerv(GL_SAMPLE_BUFFERS, &(rs->iSampleBuffers));
-        glGetFloatv(GL_SAMPLE_COVERAGE_VALUE, &(rs->fSampleCoverageValue));
-        glGetBooleanv(GL_SAMPLE_COVERAGE_INVERT, &(rs->bSampleCoverageInvert));
-        glGetIntegerv(GL_SAMPLES, &(rs->iSamples));
-        #endif
+        mglNextParamInteger(&out, "GL_SAMPLE_BUFFERS", rs.iSampleBuffers);
+        mglNextParamFloat(&out, "GL_SAMPLE_COVERAGE_VALUE", rs.fSampleCoverageValue);
+        mglNextParamBoolean(&out, "GL_SAMPLE_COVERAGE_INVERT", rs.bSampleCoverageInvert);
+        mglNextParamInteger(&out, "GL_SAMPLES", rs.iSamples);
     }
     else
     #endif // /GL_VERSION_1_3
@@ -1736,6 +1946,10 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         MGL_PARAM_UNAVAIL( GL_TEXTURE_COMPRESSION_HINT );
         MGL_PARAM_UNAVAIL( GL_ACTIVE_TEXTURE );
         MGL_PARAM_UNAVAIL( GL_MAX_CUBE_MAP_TEXTURE_SIZE );
+        MGL_PARAM_UNAVAIL( GL_SAMPLE_BUFFERS );
+        MGL_PARAM_UNAVAIL( GL_SAMPLE_COVERAGE_VALUE );
+        MGL_PARAM_UNAVAIL( GL_SAMPLE_COVERAGE_INVERT );
+        MGL_PARAM_UNAVAIL( GL_SAMPLES );
     }
 
     // *****************************************************************
@@ -1902,28 +2116,29 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     #ifdef GL_VERSION_3_0
     if (MGL_VERSION_MIN(3, 0))
     {
-        #if 0
-        glGetIntegerv(GL_NUM_EXTENSIONS, &(rs->iNumExtensions));
-        #endif
-
         mglNextParamBitfield(&out, "GL_CONTEXT_FLAGS", rs.iContextFlags, 32, mglContextFlagBitStr);
         mglNextParamInteger(&out, "GL_DRAW_FRAMEBUFFER_BINDING", rs.iDrawFramebufferBinding);
         mglNextParamInteger(&out, "GL_MAX_ARRAY_TEXTURE_LAYERS", rs.iMaxArrayTextureLayers);
         mglNextParamInteger(&out, "GL_MAX_CLIP_DISTANCES", rs.iMaxClipDistances);
         mglNextParamInteger(&out, "GL_MAX_RENDERBUFFER_SIZE", rs.iMaxRenderbufferSize);
         mglNextParamInteger(&out, "GL_MAX_VARYING_COMPONENTS", rs.iMaxVaryingComponents);
-        #if 0
-        glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &(rs->iMinProgramTexelOffest));
-        glGetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, &(rs->iMaxProgramTexelOffest));
-        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &(rs->iReadFramebufferBinding));
-        glGetIntegerv(GL_RENDERBUFFER_BINDING, &(rs->iRenderbufferBinding));
-        glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &(rs->iTextureBinding1DArray));
-        glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &(rs->iTextureBinding2DArray));
-        mglGetIntegerStaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, &(rs->iTransformFeedbackBufferBinding[0]), MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_SIZE, &(rs->iTransformFeedbackBufferSize[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_TRANSFORM_FEEDBACK_BUFFER_START, &(rs->iTransformFeedbackBufferStart[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
-        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &(rs->iVertexArrayBinding));
+        mglNextParamInteger(&out, "GL_NUM_EXTENSIONS", rs.iNumExtensions);
+        mglNextParamInteger(&out, "GL_MIN_PROGRAM_TEXEL_OFFSET", rs.iMinProgramTexelOffest);
+        mglNextParamInteger(&out, "GL_MAX_PROGRAM_TEXEL_OFFSET", rs.iMaxProgramTexelOffest);
+        mglNextParamInteger(&out, "GL_READ_FRAMEBUFFER_BINDING", rs.iReadFramebufferBinding);
+        mglNextParamInteger(&out, "GL_RENDERBUFFER_BINDING", rs.iRenderbufferBinding);
+        mglNextParamInteger(&out, "GL_TEXTURE_BINDING_1D_ARRAY", rs.iTextureBinding1DArray);
+        mglNextParamInteger(&out, "GL_TEXTURE_BINDING_2D_ARRAY", rs.iTextureBinding2DArray);
+        #if 1//TODO
+        mglNextParamIntegerArray(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_BINDING", rs.iTransformFeedbackBufferBinding, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, 0);
+        mglNextParamInteger64Array(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_SIZE", rs.iTransformFeedbackBufferSize, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
+        mglNextParamInteger64Array(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_START", rs.iTransformFeedbackBufferStart, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
+        #else
+        MGL_PARAM_NOT_YET_IMPL( GL_TRANSFORM_FEEDBACK_BUFFER_BINDING );
+        MGL_PARAM_NOT_YET_IMPL( GL_TRANSFORM_FEEDBACK_BUFFER_SIZE );
+        MGL_PARAM_NOT_YET_IMPL( GL_TRANSFORM_FEEDBACK_BUFFER_START );
         #endif
+        mglNextParamInteger(&out, "GL_VERTEX_ARRAY_BINDING", rs.iVertexArrayBinding);
     }
     else
     #endif // /GL_VERSION_3_0
@@ -1934,6 +2149,17 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         MGL_PARAM_UNAVAIL( GL_MAX_CLIP_DISTANCES );
         MGL_PARAM_UNAVAIL( GL_MAX_RENDERBUFFER_SIZE );
         MGL_PARAM_UNAVAIL( GL_MAX_VARYING_COMPONENTS );
+        MGL_PARAM_UNAVAIL( GL_NUM_EXTENSIONS );
+        MGL_PARAM_UNAVAIL( GL_MIN_PROGRAM_TEXEL_OFFSET );
+        MGL_PARAM_UNAVAIL( GL_MAX_PROGRAM_TEXEL_OFFSET );
+        MGL_PARAM_UNAVAIL( GL_READ_FRAMEBUFFER_BINDING );
+        MGL_PARAM_UNAVAIL( GL_RENDERBUFFER_BINDING );
+        MGL_PARAM_UNAVAIL( GL_TEXTURE_BINDING_1D_ARRAY );
+        MGL_PARAM_UNAVAIL( GL_TEXTURE_BINDING_2D_ARRAY );
+        MGL_PARAM_UNAVAIL( GL_TRANSFORM_FEEDBACK_BUFFER_BINDING );
+        MGL_PARAM_UNAVAIL( GL_TRANSFORM_FEEDBACK_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_TRANSFORM_FEEDBACK_BUFFER_START );
+        MGL_PARAM_UNAVAIL( GL_VERTEX_ARRAY_BINDING );
     }
 
     // *****************************************************************
@@ -1953,19 +2179,24 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_MAX_FRAGMENT_UNIFORM_BLOCKS", rs.iMaxFragmentUniformBlocks);
         mglNextParamInteger(&out, "GL_MAX_GEOMETRY_UNIFORM_BLOCKS", rs.iMaxGeometryUniformBlocks);
         mglNextParamInteger(&out, "GL_MAX_VERTEX_UNIFORM_BLOCKS", rs.iMaxVertexUniformBlocks);
-        #if 0
-        glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &(rs->iMaxRectangleTextureSize));
-        glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &(rs->iMaxTextureBufferSize));
-        glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &(rs->iMaxUniformBufferBindings));
-        glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &(rs->iMaxUniformBlockSize));
-        glGetIntegerv(GL_PRIMITIVE_RESTART_INDEX, &(rs->iPrimitiveRestartIndex));
-        glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &(rs->iTextureBindingBuffer));
-        glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &(rs->iTextureBindingRectangle));
-        mglGetIntegerStaticArray(GL_UNIFORM_BUFFER_BINDING, &(rs->iUniformBufferBinding[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_UNIFORM_BUFFER_SIZE, &(rs->iUniformBufferSize[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_UNIFORM_BUFFER_START, &(rs->iUniformBufferStart[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
-        glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &(rs->iUniformBufferOffsetAlignment));
+
+        mglNextParamInteger(&out, "GL_MAX_RECTANGLE_TEXTURE_SIZE", rs.iMaxRectangleTextureSize);
+        mglNextParamInteger(&out, "GL_MAX_TEXTURE_BUFFER_SIZE", rs.iMaxTextureBufferSize);
+        mglNextParamInteger(&out, "GL_MAX_UNIFORM_BUFFER_BINDINGS", rs.iMaxUniformBufferBindings);
+        mglNextParamInteger(&out, "GL_MAX_UNIFORM_BLOCK_SIZE", rs.iMaxUniformBlockSize);
+        mglNextParamInteger(&out, "GL_PRIMITIVE_RESTART_INDEX", rs.iPrimitiveRestartIndex);
+        mglNextParamInteger(&out, "GL_TEXTURE_BINDING_BUFFER", rs.iTextureBindingBuffer);
+        mglNextParamInteger(&out, "GL_TEXTURE_BINDING_RECTANGLE", rs.iTextureBindingRectangle);
+        #if 0//TODO
+        mglGetIntegerStaticArray(&out, "GL_UNIFORM_BUFFER_BINDING", rs.iUniformBufferBinding[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
+        mglGetInteger64StaticArray(&out, "GL_UNIFORM_BUFFER_SIZE", rs.iUniformBufferSize[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
+        mglGetInteger64StaticArray(&out, "GL_UNIFORM_BUFFER_START", rs.iUniformBufferStart[0]), MGL_MAX_UNIFORM_BUFFER_BINDINGS);
+        #else
+        MGL_PARAM_NOT_YET_IMPL( GL_UNIFORM_BUFFER_BINDING );
+        MGL_PARAM_NOT_YET_IMPL( GL_UNIFORM_BUFFER_SIZE );
+        MGL_PARAM_NOT_YET_IMPL( GL_UNIFORM_BUFFER_START );
         #endif
+        mglNextParamInteger(&out, "GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT", rs.iUniformBufferOffsetAlignment);
     }
     else
     #endif // /GL_VERSION_3_1
@@ -1977,6 +2208,17 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         MGL_PARAM_UNAVAIL( GL_MAX_FRAGMENT_UNIFORM_BLOCKS );
         MGL_PARAM_UNAVAIL( GL_MAX_GEOMETRY_UNIFORM_BLOCKS );
         MGL_PARAM_UNAVAIL( GL_MAX_VERTEX_UNIFORM_BLOCKS );
+        MGL_PARAM_UNAVAIL( GL_MAX_RECTANGLE_TEXTURE_SIZE );
+        MGL_PARAM_UNAVAIL( GL_MAX_TEXTURE_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_MAX_UNIFORM_BUFFER_BINDINGS );
+        MGL_PARAM_UNAVAIL( GL_MAX_UNIFORM_BLOCK_SIZE );
+        MGL_PARAM_UNAVAIL( GL_PRIMITIVE_RESTART_INDEX );
+        MGL_PARAM_UNAVAIL( GL_TEXTURE_BINDING_BUFFER );
+        MGL_PARAM_UNAVAIL( GL_TEXTURE_BINDING_RECTANGLE );
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_BINDING );
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_START );
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT );
     }
 
     // *****************************************************************
@@ -1998,14 +2240,12 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_MAX_GEOMETRY_UNIFORM_COMPONENTS", rs.iMaxGeometryUniformComponents);
         mglNextParamInteger(&out, "GL_MAX_FRAGMENT_INPUT_COMPONENTS", rs.iMaxFragmentInputComponents);
         mglNextParamInteger(&out, "GL_MAX_VERTEX_OUTPUT_COMPONENTS", rs.iMaxVertexOutputComponents);
-        #if 0
-        glGetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, &(rs->iMaxSampleMaskWords));
-        glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &(rs->iMaxServerWaitTimeout));
-        glGetBooleanv(GL_PROGRAM_POINT_SIZE, &(rs->bProgramPointSize));
-        glGetIntegerv(GL_PROVOKING_VERTEX, &(rs->iProvokingVertex));
-        glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &(rs->iTextureBinding2DMultisample));
-        glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &(rs->iTextureBinding2DMultisampleArray));
-        #endif
+        mglNextParamInteger(&out, "GL_MAX_SAMPLE_MASK_WORDS", rs.iMaxSampleMaskWords);
+        mglNextParamInteger(&out, "GL_MAX_SERVER_WAIT_TIMEOUT", rs.iMaxServerWaitTimeout);
+        mglNextParamBoolean(&out, "GL_PROGRAM_POINT_SIZE", rs.bProgramPointSize);
+        mglNextParamEnum(&out, "GL_PROVOKING_VERTEX", rs.iProvokingVertex, mglProvokingVertexModeStr);
+        mglNextParamInteger(&out, "GL_TEXTURE_BINDING_2D_MULTISAMPLE", rs.iTextureBinding2DMultisample);
+        mglNextParamInteger(&out, "GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY", rs.iTextureBinding2DMultisampleArray);
     }
     else
     #endif
@@ -2019,39 +2259,50 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         MGL_PARAM_UNAVAIL( GL_MAX_GEOMETRY_UNIFORM_COMPONENTS );
         MGL_PARAM_UNAVAIL( GL_MAX_FRAGMENT_INPUT_COMPONENTS );
         MGL_PARAM_UNAVAIL( GL_MAX_VERTEX_OUTPUT_COMPONENTS );
+        MGL_PARAM_UNAVAIL( GL_MAX_SAMPLE_MASK_WORDS );
+        MGL_PARAM_UNAVAIL( GL_MAX_SERVER_WAIT_TIMEOUT );
+        MGL_PARAM_UNAVAIL( GL_PROGRAM_POINT_SIZE );
+        MGL_PARAM_UNAVAIL( GL_PROVOKING_VERTEX );
+        MGL_PARAM_UNAVAIL( GL_TEXTURE_BINDING_2D_MULTISAMPLE );
+        MGL_PARAM_UNAVAIL( GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY );
     }
 
     // *****************************************************************
     //      GL_VERSION_3_3
     // *****************************************************************
 
+    if (formatting->order == MGLFormattingOrderDefault)
+        mglNextHeadline(&out, "\nGL_VERSION_3_3");
+
     #ifdef GL_VERSION_3_3
     if (MGL_VERSION_MIN(3, 3))
     {
-        #if 0
-        glGetIntegerv(GL_SAMPLER_BINDING, &(rs->iSamplerBinding));
-        glGetInteger64i_v(GL_TIMESTAMP, 0, &(rs->iTimestamp));
-        #endif
+        mglNextParamInteger(&out, "GL_SAMPLER_BINDING", rs.iSamplerBinding);
+        mglNextParamInteger64(&out, "GL_TIMESTAMP", rs.iTimestamp);
     }
     else
     #endif
     {
-        //TODO...
+        MGL_PARAM_UNAVAIL( GL_SAMPLER_BINDING );
+        MGL_PARAM_UNAVAIL( GL_TIMESTAMP );
     }
 
     // *****************************************************************
     //      GL_VERSION_4_0
     // *****************************************************************
 
+    if (formatting->order == MGLFormattingOrderDefault)
+        mglNextHeadline(&out, "\nGL_VERSION_4_0");
+
     #ifdef GL_VERSION_4_0
     if (MGL_VERSION_MIN(4, 0))
     {
-        //TODO...
+        mglNextParamInteger(&out, "GL_MAX_TRANSFORM_FEEDBACK_BUFFERS", rs.iMaxTransformFeedbackBuffers);
     }
     else
     #endif
     {
-        //TODO...
+        MGL_PARAM_UNAVAIL( GL_MAX_TRANSFORM_FEEDBACK_BUFFERS );
     }
 
     // *****************************************************************
@@ -2073,15 +2324,13 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamEnum(&out, "GL_VIEWPORT_INDEX_PROVOKING_VERTEX", rs.iViewportIndexProvokingVertex, mglProvokingVertexModeStr);
         mglNextParamInteger(&out, "GL_VIEWPORT_SUBPIXEL_BITS", rs.iViewportSubPixelBits);
         mglNextParamInteger(&out, "GL_MAX_FRAGMENT_UNIFORM_VECTORS", rs.iMaxFragmentUniformVectors);
-        #if 0
-        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS, &(rs->iMaxVertexUniformVectors));
-        glGetIntegerv(GL_NUM_SHADER_BINARY_FORMATS, &(rs->iNumShaderBinaryFormats));
-        mglGetIntegerDynamicArray(GL_SHADER_BINARY_FORMATS, &(rs->iShaderBinaryFormats[0]), rs->iNumShaderBinaryFormats, MGL_MAX_SHADER_BINARY_FORMATS);
-        glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &(rs->iNumProgramBinaryFormats));
-        mglGetIntegerDynamicArray(GL_PROGRAM_BINARY_FORMATS, &(rs->iProgramBinaryFormats[0]), rs->iNumProgramBinaryFormats, MGL_MAX_PROGRAM_BINARY_FORMATS);
-        glGetIntegerv(GL_PROGRAM_PIPELINE_BINDING, &(rs->iProgramPipelineBinding));
-        glGetBooleanv(GL_SHADER_COMPILER, &(rs->bShaderCompiler));
-        #endif
+        mglNextParamInteger(&out, "GL_MAX_VERTEX_UNIFORM_VECTORS", rs.iMaxVertexUniformVectors);
+        mglNextParamInteger(&out, "GL_NUM_SHADER_BINARY_FORMATS", rs.iNumShaderBinaryFormats);
+        mglNextParamIntegerArray(&out, "GL_SHADER_BINARY_FORMATS", rs.iShaderBinaryFormats, rs.iNumShaderBinaryFormats, MGL_MAX_SHADER_BINARY_FORMATS, formatting->enable_hex);
+        mglNextParamInteger(&out, "GL_NUM_PROGRAM_BINARY_FORMATS", rs.iNumProgramBinaryFormats);
+        mglNextParamIntegerArray(&out, "GL_PROGRAM_BINARY_FORMATS", rs.iProgramBinaryFormats, rs.iNumProgramBinaryFormats, MGL_MAX_PROGRAM_BINARY_FORMATS, formatting->enable_hex);
+        mglNextParamInteger(&out, "GL_PROGRAM_PIPELINE_BINDING", rs.iProgramPipelineBinding);
+        mglNextParamBoolean(&out, "GL_SHADER_COMPILER", rs.bShaderCompiler);
     }
     else
     #endif // /GL_VERSION_4_1
@@ -2095,6 +2344,13 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         MGL_PARAM_UNAVAIL( GL_VIEWPORT_INDEX_PROVOKING_VERTEX );
         MGL_PARAM_UNAVAIL( GL_VIEWPORT_SUBPIXEL_BITS );
         MGL_PARAM_UNAVAIL( GL_MAX_FRAGMENT_UNIFORM_VECTORS );
+        MGL_PARAM_UNAVAIL( GL_MAX_VERTEX_UNIFORM_VECTORS );
+        MGL_PARAM_UNAVAIL( GL_NUM_SHADER_BINARY_FORMATS );
+        MGL_PARAM_UNAVAIL( GL_SHADER_BINARY_FORMATS );
+        MGL_PARAM_UNAVAIL( GL_NUM_PROGRAM_BINARY_FORMATS );
+        MGL_PARAM_UNAVAIL( GL_PROGRAM_BINARY_FORMATS );
+        MGL_PARAM_UNAVAIL( GL_PROGRAM_PIPELINE_BINDING );
+        MGL_PARAM_UNAVAIL( GL_SHADER_COMPILER );
     }
 
     // *****************************************************************
@@ -2164,18 +2420,16 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS", rs.iMaxFragmentShaderStorageBlocks);
         mglNextParamInteger(&out, "GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS", rs.iMaxComputeShaderStorageBlocks);
         mglNextParamInteger(&out, "GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT", rs.iTextureBufferOffsetAlignment);
-        /*mglNextParamInteger(&out, "GL_VERTEX_BINDING_DIVISOR", rs.iVertexBindingDivisor);
-        mglNextParamInteger(&out, "GL_VERTEX_BINDING_OFFSET", rs.iVertexBindingDivisor);
-        mglNextParamInteger(&out, "GL_VERTEX_BINDING_STRIDE", rs.iVertexBindingDivisor);*/
+        mglNextParamIntegerArray(&out, "GL_VERTEX_BINDING_DIVISOR", rs.iVertexBindingDivisor, MGL_MAX_VERTEX_BUFFER_BINDINGS, MGL_MAX_VERTEX_BUFFER_BINDINGS, 0);
+        mglNextParamIntegerArray(&out, "GL_VERTEX_BINDING_OFFSET", rs.iVertexBindingOffset, MGL_MAX_VERTEX_BUFFER_BINDINGS, MGL_MAX_VERTEX_BUFFER_BINDINGS, 0);
+        mglNextParamIntegerArray(&out, "GL_VERTEX_BINDING_STRIDE", rs.iVertexBindingStride, MGL_MAX_VERTEX_BUFFER_BINDINGS, MGL_MAX_VERTEX_BUFFER_BINDINGS, 0);
         mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET", rs.iMaxVertexAttribRelativeOffset);
         mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIB_BINDINGS", rs.iMaxVertexAttribBindings);
-        #if 0
-        glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &(rs->iMaxShaderStorageBufferBindings));
-        mglGetIntegerStaticArray(GL_SHADER_STORAGE_BUFFER_BINDING, &(rs->iShaderStorageBufferBinding[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
-        glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &(rs->iShaderStorageBufferOffsetAlignment));
-        mglGetInteger64StaticArray(GL_SHADER_STORAGE_BUFFER_SIZE, &(rs->iShaderStorageBufferSize[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
-        mglGetInteger64StaticArray(GL_SHADER_STORAGE_BUFFER_START, &(rs->iShaderStorageBufferStart[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
-        #endif
+        mglNextParamInteger(&out, "GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS", rs.iMaxShaderStorageBufferBindings);
+        mglNextParamIntegerArray(&out, "GL_SHADER_STORAGE_BUFFER_BINDING", rs.iShaderStorageBufferBinding, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, 0);
+        mglNextParamInteger(&out, "GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT", rs.iShaderStorageBufferOffsetAlignment);
+        mglNextParamInteger64Array(&out, "GL_SHADER_STORAGE_BUFFER_SIZE", rs.iShaderStorageBufferSize, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
+        mglNextParamInteger64Array(&out, "GL_SHADER_STORAGE_BUFFER_START", rs.iShaderStorageBufferStart, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
     }
     else
     #endif // /GL_VERSION_4_3
@@ -2211,6 +2465,11 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         MGL_PARAM_UNAVAIL( GL_VERTEX_BINDING_STRIDE );
         MGL_PARAM_UNAVAIL( GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET );
         MGL_PARAM_UNAVAIL( GL_MAX_VERTEX_ATTRIB_BINDINGS );
+        MGL_PARAM_UNAVAIL( GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS );
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_BINDING );
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT );
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_START );
     }
 
     // Determine longest parameter name
