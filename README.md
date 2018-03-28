@@ -1,5 +1,5 @@
-MentalGL - Simple OpenGL debugging utility in the public domain
-===============================================================
+MentalGL - OpenGL debugging utility to review entire render state
+=================================================================
 
 **Public domain** (CC0) header-only library written in C99.
 
