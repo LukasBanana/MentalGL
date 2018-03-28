@@ -44,6 +44,10 @@ MGLQueryFormatting;
 Returns a descriptive string with information about the entire render state of OpenGL.
 Usage example:
 
+// Optionally enable glGetIntegeri_v and glGetInteger64i_v
+#define MENTAL_GL_GETINTEGERI_V
+#define MENTAL_GL_GETINTEGER64I_V
+
 // Include and implement MentalGL in a single source file
 #define MENTAL_GL_IMPLEMENTATION
 #include "mental_gl.h"
@@ -630,14 +634,18 @@ static void mglGetIntegerDynamicArray(GLenum pname, GLint* data, GLuint count, G
 
 static void mglGetIntegerStaticArray(GLenum pname, GLint* data, GLuint count)
 {
+    #ifdef MENTAL_GL_GETINTEGERI_V
     for (GLuint i = 0; i < count; ++i)
         glGetIntegeri_v(pname, i, &(data[i]));
+    #endif
 }
 
 static void mglGetInteger64StaticArray(GLenum pname, GLint64* data, GLuint count)
 {
+    #ifdef MENTAL_GL_GETINTEGER64I_V
     for (GLuint i = 0; i < count; ++i)
         glGetInteger64i_v(pname, i, &(data[i]));
+    #endif
 }
 
 static void mglEnumToHex(char* s, unsigned val)
@@ -2152,9 +2160,18 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_RENDERBUFFER_BINDING", rs.iRenderbufferBinding);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_1D_ARRAY", rs.iTextureBinding1DArray);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_2D_ARRAY", rs.iTextureBinding2DArray);
+        #ifdef MENTAL_GL_GETINTEGERI_V
         mglNextParamIntegerArray(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_BINDING", rs.iTransformFeedbackBufferBinding, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, 0);
+        #else
+        MGL_PARAM_UNAVAIL( GL_TRANSFORM_FEEDBACK_BUFFER_BINDING );
+        #endif
+        #ifdef MENTAL_GL_GETINTEGER64I_V
         mglNextParamInteger64Array(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_SIZE", rs.iTransformFeedbackBufferSize, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
         mglNextParamInteger64Array(&out, "GL_TRANSFORM_FEEDBACK_BUFFER_START", rs.iTransformFeedbackBufferStart, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS, MGL_MAX_TRANSFORM_FEEDBACK_BUFFER_BINDINGS);
+        #else
+        MGL_PARAM_UNAVAIL( GL_TRANSFORM_FEEDBACK_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_TRANSFORM_FEEDBACK_BUFFER_START );
+        #endif
         mglNextParamInteger(&out, "GL_VERTEX_ARRAY_BINDING", rs.iVertexArrayBinding);
     }
     else
@@ -2204,9 +2221,18 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_PRIMITIVE_RESTART_INDEX", rs.iPrimitiveRestartIndex);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_BUFFER", rs.iTextureBindingBuffer);
         mglNextParamInteger(&out, "GL_TEXTURE_BINDING_RECTANGLE", rs.iTextureBindingRectangle);
+        #ifdef MENTAL_GL_GETINTEGERI_V
         mglNextParamIntegerArray(&out, "GL_UNIFORM_BUFFER_BINDING", rs.iUniformBufferBinding, MGL_MAX_UNIFORM_BUFFER_BINDINGS, MGL_MAX_UNIFORM_BUFFER_BINDINGS, 0);
+        #else
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_BINDING );
+        #endif
+        #ifdef MENTAL_GL_GETINTEGER64I_V
         mglNextParamInteger64Array(&out, "GL_UNIFORM_BUFFER_SIZE", rs.iUniformBufferSize, MGL_MAX_UNIFORM_BUFFER_BINDINGS, MGL_MAX_UNIFORM_BUFFER_BINDINGS);
         mglNextParamInteger64Array(&out, "GL_UNIFORM_BUFFER_START", rs.iUniformBufferStart, MGL_MAX_UNIFORM_BUFFER_BINDINGS, MGL_MAX_UNIFORM_BUFFER_BINDINGS);
+        #else
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_UNIFORM_BUFFER_START );
+        #endif
         mglNextParamInteger(&out, "GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT", rs.iUniformBufferOffsetAlignment);
     }
     else
@@ -2412,9 +2438,17 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_MAX_COMPUTE_UNIFORM_COMPONENTS", rs.iMaxComputeUniformComponents);
         mglNextParamInteger(&out, "GL_MAX_COMPUTE_ATOMIC_COUNTERS", rs.iMaxComputeAtomicCounters);
         mglNextParamInteger(&out, "GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS", rs.iMaxComputeAtomicCounterBuffers);
+        #ifdef MENTAL_GL_GETINTEGERI_V
         mglNextParamIntegerArray(&out, "GL_MAX_COMPUTE_WORK_GROUP_COUNT", rs.iMaxComputeWorkGroupCount, 3, 3, 0);
+        #else
+        MGL_PARAM_UNAVAIL( GL_MAX_COMPUTE_WORK_GROUP_COUNT );
+        #endif
         mglNextParamInteger(&out, "GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS", rs.iMaxComputeWorkGroup);
+        #ifdef MENTAL_GL_GETINTEGERI_V
         mglNextParamIntegerArray(&out, "GL_MAX_COMPUTE_WORK_GROUP_SIZE", rs.iMaxComputeWorkGroupSize, 3, 3, 0);
+        #else
+        MGL_PARAM_UNAVAIL( GL_MAX_COMPUTE_WORK_GROUP_SIZE );
+        #endif
         mglNextParamInteger(&out, "GL_DISPATCH_INDIRECT_BUFFER_BINDING", rs.iDispatchIndirectBufferBinding);
         mglNextParamInteger(&out, "GL_MAX_DEBUG_GROUP_STACK_DEPTH", rs.iMaxDebugGroupStackDepth);
         mglNextParamInteger(&out, "GL_DEBUG_GROUP_STACK_DEPTH", rs.iDebugGroupStackDepth);
@@ -2431,16 +2465,31 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
         mglNextParamInteger(&out, "GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS", rs.iMaxFragmentShaderStorageBlocks);
         mglNextParamInteger(&out, "GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS", rs.iMaxComputeShaderStorageBlocks);
         mglNextParamInteger(&out, "GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT", rs.iTextureBufferOffsetAlignment);
+        #ifdef MENTAL_GL_GETINTEGERI_V
         mglNextParamIntegerArray(&out, "GL_VERTEX_BINDING_DIVISOR", rs.iVertexBindingDivisor, MGL_MAX_VERTEX_BUFFER_BINDINGS, MGL_MAX_VERTEX_BUFFER_BINDINGS, 0);
         mglNextParamIntegerArray(&out, "GL_VERTEX_BINDING_OFFSET", rs.iVertexBindingOffset, MGL_MAX_VERTEX_BUFFER_BINDINGS, MGL_MAX_VERTEX_BUFFER_BINDINGS, 0);
         mglNextParamIntegerArray(&out, "GL_VERTEX_BINDING_STRIDE", rs.iVertexBindingStride, MGL_MAX_VERTEX_BUFFER_BINDINGS, MGL_MAX_VERTEX_BUFFER_BINDINGS, 0);
+        #else
+        MGL_PARAM_UNAVAIL( GL_VERTEX_BINDING_DIVISOR );
+        MGL_PARAM_UNAVAIL( GL_VERTEX_BINDING_OFFSET );
+        MGL_PARAM_UNAVAIL( GL_VERTEX_BINDING_STRIDE );
+        #endif
         mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIB_RELATIVE_OFFSET", rs.iMaxVertexAttribRelativeOffset);
         mglNextParamInteger(&out, "GL_MAX_VERTEX_ATTRIB_BINDINGS", rs.iMaxVertexAttribBindings);
         mglNextParamInteger(&out, "GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS", rs.iMaxShaderStorageBufferBindings);
+        #ifdef MENTAL_GL_GETINTEGERI_V
         mglNextParamIntegerArray(&out, "GL_SHADER_STORAGE_BUFFER_BINDING", rs.iShaderStorageBufferBinding, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, 0);
+        #else
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_BINDING );
+        #endif
         mglNextParamInteger(&out, "GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT", rs.iShaderStorageBufferOffsetAlignment);
+        #ifdef MENTAL_GL_GETINTEGER64I_V
         mglNextParamInteger64Array(&out, "GL_SHADER_STORAGE_BUFFER_SIZE", rs.iShaderStorageBufferSize, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
         mglNextParamInteger64Array(&out, "GL_SHADER_STORAGE_BUFFER_START", rs.iShaderStorageBufferStart, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
+        #else
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_SIZE );
+        MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_START );
+        #endif
     }
     else
     #endif // /GL_VERSION_4_3

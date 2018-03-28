@@ -5,9 +5,13 @@
 #include <GL/glut.h>
 #include <stdio.h>
 
+#define MENTAL_GL_GETINTEGERI_V
+#define MENTAL_GL_GETINTEGER64I_V
+
 #ifndef MENTAL_GL_IMPLEMENTATION
 #define MENTAL_GL_IMPLEMENTATION
 #endif
+
 #include "mental_gl.h"
 
 void drawScene(void)
