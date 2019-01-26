@@ -1,9 +1,14 @@
 // Simple test for MentalGL
 // Created on 26/03/2018 by Lukas Hermanns
 
-#include <glad/glad.h>
-#include <GL/glut.h>
 #include <stdio.h>
+#include <glad/glad.h>
+
+#ifdef __APPLE__
+#   include <GLUT/glut.h>
+#else
+#   include <GL/glut.h>
+#endif
 
 #define MENTAL_GL_GETINTEGERI_V
 #define MENTAL_GL_GETINTEGER64I_V
@@ -63,8 +68,12 @@ void initGL(void)
 int main(int argc, char **argv)
 {
     glutInit(&argc, argv);
+    #ifdef __APPLE__
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_3_2_CORE_PROFILE);
+    #else
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    
+    #endif
+
     glutCreateWindow("MentalGL Test 1");
 
     gladLoadGL();

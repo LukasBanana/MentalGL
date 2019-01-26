@@ -102,8 +102,13 @@ void mglFreeString(MGLString s);
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <GL/GL.h>
-#include <GL/glext.h>
+
+#ifdef __APPLE__
+#   include <OpenGL/OpenGL.h>
+#else
+#   include <GL/GL.h>
+#   include <GL/glext.h>
+#endif
 
 
 // *****************************************************************
@@ -466,6 +471,7 @@ static void mglStringInternalFree(MGLStringInternal* s)
         MGL_FREE(s->buf);
 }
 
+#if 0 // UNUSED
 // Allocates enough space for the specified capacity (if its larger than the current string capacity)
 static void mglStringInternalReserve(MGLStringInternal* s, size_t cap)
 {
@@ -494,6 +500,7 @@ static void mglStringInternalCopy(MGLStringInternal* dst, const MGLStringInterna
         memcpy(dst->buf, src->buf, dst->len + 1);
     }
 }
+#endif // /UNUSED
 
 // Resizes the string to the specified length and fills the new characters with 'chr'
 static void mglStringInternalResize(MGLStringInternal* s, size_t len, char chr)
@@ -1403,7 +1410,7 @@ static void mglGetGLRenderStates(MGLRenderStates* rs)
                                                    GL_DRAW_BUFFER12, GL_DRAW_BUFFER13, GL_DRAW_BUFFER14, GL_DRAW_BUFFER15 };
 
     // Get last GL error
-    GLenum last_err = glGetError();
+    //GLenum last_err = glGetError();
 
     // Query all OpenGL states
     memset(rs, 0, sizeof(MGLRenderStates));
@@ -1829,11 +1836,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     // Internal constnat parameters
     static const MGLQueryFormatting g_formattingDefault     = { ' ', 1, 200, MGLFormattingOrderDefault, 1, NULL };
     static const char*              g_valNA                 = "n/a";
-    static const char*              g_valNotYetImpl         = "< not yet implemented >";
-    static const GLenum             g_drawBufferPnames[16]  = { GL_DRAW_BUFFER0, GL_DRAW_BUFFER1, GL_DRAW_BUFFER2, GL_DRAW_BUFFER3,
-                                                                GL_DRAW_BUFFER4, GL_DRAW_BUFFER5, GL_DRAW_BUFFER6, GL_DRAW_BUFFER7,
-                                                                GL_DRAW_BUFFER8, GL_DRAW_BUFFER9, GL_DRAW_BUFFER10, GL_DRAW_BUFFER11,
-                                                                GL_DRAW_BUFFER12, GL_DRAW_BUFFER13, GL_DRAW_BUFFER14, GL_DRAW_BUFFER15 };
+    //static const char*              g_valNotYetImpl         = "< not yet implemented >";
 
     if (formatting == NULL)
         formatting = (&g_formattingDefault);
@@ -1847,7 +1850,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     MGLStringPairArray out = { out_par, out_val, 0 };
 
     // Get last GL error
-    GLenum last_err = glGetError();
+    //GLenum last_err = glGetError();
 
     // Query all OpenGL states
     MGLRenderStates rs;
@@ -1856,7 +1859,7 @@ MGLString mglQueryRenderState(const MGLQueryFormatting* formatting)
     #define MGL_VERSION(MAJOR, MINOR)       (((MAJOR) << 16) | (MINOR))
     #define MGL_VERSION_MIN(MAJOR, MINOR)   (MGL_VERSION(rs.iMajorVersion, rs.iMinorVersion) >= MGL_VERSION(MAJOR, MINOR))
     #define MGL_PARAM_UNAVAIL(NAME)         mglNextParamString(&out, #NAME, g_valNA)
-    #define MGL_PARAM_NOT_YET_IMPL(NAME)    mglNextParamString(&out, #NAME, g_valNotYetImpl)
+    //#define MGL_PARAM_NOT_YET_IMPL(NAME)    mglNextParamString(&out, #NAME, g_valNotYetImpl)
 
     // *****************************************************************
     //      GL_VERSION_1_0
