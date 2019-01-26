@@ -14,11 +14,15 @@ Here is a brief example how to use this utility library:
 
 // Do OpenGL stuff ...
 
-// Query current OpenGL state (ignore optional formatting descriptor, otherwise see 'MGLQueryFormatting' structure)
-MGLString s = mglQueryRenderState(NULL);
+// Query current OpenGL state
+MGLRenderState rs;
+mglQueryRenderState(&rs);
+
+// Print queries OpenGL state (ignore optional formatting descriptor, otherwise see 'MGLQueryFormatting' structure)
+MGLString s = mglPrintRenderState(&rs, NULL);
 
 // Print result
-printf("%s\n", mglGetString(s));
+puts(mglGetUTF8String(s));
 
 // Free opaque string object
 mglFreeString(s);
