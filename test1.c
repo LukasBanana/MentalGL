@@ -41,11 +41,14 @@ void drawScene(void)
     {
         renderStateShowen = 1;
 
-        MGLQueryFormatting fmt = { ' ', 3, 200, MGLFormattingOrderDefault, 1, NULL };
-        MGLString renderState = mglQueryRenderState(&fmt);
+        MGLRenderState rs;
+        mglQueryRenderState(&rs);
 
-        printf("%s\n", mglGetString(renderState));
-        mglFreeString(renderState);
+        MGLFormattingOptions fmt = { ' ', 3, 200, MGLFormattingOrderDefault, 1, NULL };
+        MGLString rsStr = mglPrintRenderState(&rs, &fmt);
+
+        puts(mglGetUTF8String(rsStr));
+        mglFreeString(rsStr);
     }
 }
 
