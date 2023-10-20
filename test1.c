@@ -41,14 +41,25 @@ void drawScene(void)
     {
         renderStateShowen = 1;
 
+        MGLFormattingOptions fmt = { ' ', 3, 200, MGLFormattingOrderDefault, 1, NULL };
+        
+        // Query and print render state
         MGLRenderState rs;
         mglQueryRenderState(&rs);
 
-        MGLFormattingOptions fmt = { ' ', 3, 200, MGLFormattingOrderDefault, 1, NULL };
         MGLString rsStr = mglPrintRenderState(&rs, &fmt);
 
         puts(mglGetUTF8String(rsStr));
         mglFreeString(rsStr);
+
+        // Query and print binding points
+        MGLBindingPoints bp;
+        mglQueryBindingPoints(&bp);
+
+        MGLString bpStr = mglPrintBindingPoints(&bp, &fmt);
+
+        puts(mglGetUTF8String(bpStr));
+        mglFreeString(bpStr);
     }
 }
 

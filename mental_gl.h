@@ -6,8 +6,9 @@
  *  - Lukas Hermanns (Creator)
  *
  * HISTORY:
- *  - v1.00 (26/03/2018): First release
- *  - v1.01 (26/01/2019): Refinements, MacOS portability
+ *  - v1.00 (03/26/2018): First release
+ *  - v1.01 (01/26/2019): Refinements, MacOS portability
+ *  - v1.02 (10/20/2023): Added mglQueryBindingPoints and mglPrintBindingPoints
  *
  * USAGE EXAMPLE:
  *  // Optionally enable glGetIntegeri_v and glGetInteger64i_v
@@ -338,17 +339,31 @@ MGLBindingPoints;
 //      PUBLIC FUNCTIONS
 // *****************************************************************
 
-// Queries the entire OpenGL render state and stores it in 'rs'.
-void mglQueryRenderState(MGLRenderState* rs);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// Prints the entire OpenGL render states specified by 'rs' and returns the formatted output string.
-MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptions* formatting);
+// Queries the entire OpenGL render state and stores it in 'render_state'.
+void mglQueryRenderState(MGLRenderState* render_state);
+
+// Queries the entire OpenGL binding points and stores it in 'binding_points'.
+void mglQueryBindingPoints(MGLBindingPoints* binding_points);
+
+// Prints the entire OpenGL render states specified by 'render_state' and returns the formatted output string.
+MGLString mglPrintRenderState(const MGLRenderState* render_state, const MGLFormattingOptions* formatting);
+
+// Prints the entire OpenGL binding points specified by 'binding_points' and returns the formatted output string.
+MGLString mglPrintBindingPoints(const MGLBindingPoints* binding_points, const MGLFormattingOptions* formatting);
 
 // Returns the null-terminated string from the specified opaque object.
 const char* mglGetUTF8String(MGLString s);
 
 // Release all resources allocated by this library.
 void mglFreeString(MGLString s);
+
+#ifdef __cplusplus
+} // /extern "C"
+#endif
 
 
 // *****************************************************************
@@ -438,6 +453,10 @@ MGLStringPairArray;
 // *****************************************************************
 //      INTERNAL FUNCTIONS
 // *****************************************************************
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static void mglStringInternalReset(MGLStringInternal* s)
 {
@@ -1846,6 +1865,176 @@ void mglQueryRenderState(MGLRenderState* rs)
     #undef MGL_VERSION_MIN
 }
 
+void mglQueryBindingPoints(MGLBindingPoints* bp)
+{
+    memset(bp, 0, sizeof(MGLBindingPoints));
+
+    GLint iMajorVersion = 0, iMinorVersion = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &iMajorVersion);
+    glGetIntegerv(GL_MINOR_VERSION, &iMinorVersion);
+
+    #define MGL_VERSION(MAJOR, MINOR)       (((MAJOR) << 16) | (MINOR))
+    #define MGL_VERSION_MIN(MAJOR, MINOR)   (MGL_VERSION(iMajorVersion, iMinorVersion) >= MGL_VERSION(MAJOR, MINOR))
+
+    #ifdef GL_VERSION_1_3
+    if (MGL_VERSION_MIN(1, 3))
+    {
+        // Store current active texture layer
+        GLint iPrevActiveTexture = 0;
+        glGetIntegerv(GL_ACTIVE_TEXTURE, &iPrevActiveTexture);
+
+        // Query texture types for all layers [GL_TEXTURE0 .. GL_TEXTURE31]
+        for (GLint layer = 0; layer < MGL_MAX_TEXTURE_LAYERS; ++layer)
+        {
+            glActiveTexture(GL_TEXTURE0 + layer);
+
+            glGetIntegerv(GL_TEXTURE_BINDING_1D, &(bp->iTextureBinding1D[layer]));
+            glGetIntegerv(GL_TEXTURE_BINDING_2D, &(bp->iTextureBinding2D[layer]));
+            glGetIntegerv(GL_TEXTURE_BINDING_3D, &(bp->iTextureBinding3D[layer]));
+            glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &(bp->iTextureBindingCubeMap[layer]));
+
+            #ifdef GL_VERSION_3_0
+            if (MGL_VERSION_MIN(3, 0))
+            {
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &(bp->iTextureBinding1DArray[layer]));
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &(bp->iTextureBinding2DArray[layer]));
+            }
+            #endif // /GL_VERSION_3_0
+
+            #ifdef GL_VERSION_3_1
+            if (MGL_VERSION_MIN(3, 1))
+            {
+                glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &(bp->iTextureBindingBuffer[layer]));
+                glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &(bp->iTextureBindingRectangle[layer]));
+            }
+            #endif // /GL_VERSION_3_1
+
+            #ifdef GL_VERSION_3_2
+            if (MGL_VERSION_MIN(3, 2))
+            {
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &(bp->iTextureBinding2DMultisample[layer]));
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &(bp->iTextureBinding2DMultisampleArray[layer]));
+            }
+            #endif // /GL_VERSION_3_2
+        }
+
+        // Restore previous active texture layer
+        glActiveTexture(iPrevActiveTexture);
+    }
+    else
+    #endif // /GL_VERSION_1_3
+    {
+        // Only query first layer for texture types supported up to GL 1.2
+        glGetIntegerv(GL_TEXTURE_BINDING_1D, &(bp->iTextureBinding1D[0]));
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &(bp->iTextureBinding2D[0]));
+
+        #ifdef GL_VERSION_1_2
+        if (MGL_VERSION_MIN(1, 2))
+        {
+            glGetIntegerv(GL_TEXTURE_BINDING_3D, &(bp->iTextureBinding3D[0]));
+        }
+        #endif // /GL_VERSION_1_2
+    }
+
+    #undef MGL_VERSION
+    #undef MGL_VERSION_MIN
+}
+
+static MGLString mglPrintStringPairs(MGLStringPairArray out, const MGLFormattingOptions* formatting)
+{
+    // Determine longest parameter name
+    size_t max_par_len = 0;
+
+    for (size_t i = 0; i < out.index; ++i)
+    {
+        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
+            max_par_len = MGL_MAX(max_par_len, out.first[i].len);
+    }
+
+    max_par_len += formatting->distance;
+
+    // Determine output string capacity
+    size_t out_cap = 0;
+
+    for (size_t i = 0; i < out.index; ++i)
+    {
+        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
+        {
+            out_cap += out.first[i].len;
+            out_cap += (max_par_len - out.first[i].len);
+            out_cap += out.second[i].len;
+            out_cap += 1;
+        }
+    }
+
+    // Allocate output string
+    MGLStringInternal* s = MGL_MALLOC(MGLStringInternal);
+    mglStringInternalInit(s, out_cap);
+
+    // Change order of strings
+    int out_permutations[MGL_MAX_NUM_RENDER_STATES];
+
+    for (size_t i = 0; i < MGL_MAX_NUM_RENDER_STATES; ++i)
+        out_permutations[i] = i;
+
+    if (formatting->order == MGLFormattingOrderSorted)
+    {
+        g_MGLOutputParamas = out.first;
+        qsort(out_permutations, MGL_MAX_NUM_RENDER_STATES, sizeof(int), mglCompareOutputPair);
+    }
+
+    // Merge all strings parts to the output string
+    for (size_t i = 0; i < out.index; ++i)
+    {
+        int out_i = out_permutations[i];
+
+        if (formatting->filter == NULL || strstr(out.first[out_i].buf, formatting->filter) != NULL)
+        {
+            // Append string parts to output string
+            const MGLStringInternal* cur_par = &(out.first[out_i]);
+            const MGLStringInternal* cur_val = &(out.second[out_i]);
+            const size_t cur_spaces_len = max_par_len - out.first[out_i].len;
+
+            mglStringInternalAppend(s, cur_par);
+            mglStringInternalResize(s, s->len + cur_spaces_len, formatting->separator);
+
+            if (cur_val->len > formatting->array_limit && cur_val->buf[cur_val->len - 1] == '}')
+            {
+                // Append string in multiple lines, one for each element
+                size_t off = 0, next_off = 0;
+
+                while (off < cur_val->len)
+                {
+                    // Find end of current element
+                    next_off = mglStringInternalFindChar(cur_val, ',', off, MGL_STRING_NPOS);
+                    if (next_off != MGL_STRING_NPOS)
+                    {
+                        mglStringInternalAppendSub(s, cur_val, off, next_off - off + 1);
+                        mglStringInternalAppendCStr(s, "\n");
+                        mglStringInternalResize(s, s->len + cur_par->len + cur_spaces_len + 1, formatting->separator);
+                        off = next_off + 1;
+                    }
+                    else
+                    {
+                        mglStringInternalAppendSub(s, cur_val, off, MGL_STRING_NPOS);
+                        break;
+                    }
+                }
+            }
+            else
+                mglStringInternalAppend(s, cur_val);
+
+            mglStringInternalAppendCStr(s, "\n");
+        }
+
+        // Free string parts
+        mglStringInternalFree(&(out.first[out_i]));
+        mglStringInternalFree(&(out.second[out_i]));
+    }
+
+    return (MGLString)s;
+}
+
 MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptions* formatting)
 {
     // Internal constant parameters
@@ -2583,115 +2772,42 @@ MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptio
         MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_START );
     }
 
-    // Determine longest parameter name
-    size_t max_par_len = 0;
-
-    for (size_t i = 0; i < out.index; ++i)
-    {
-        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
-            max_par_len = MGL_MAX(max_par_len, out.first[i].len);
-    }
-
-    max_par_len += formatting->distance;
-
-    // Determine output string capacity
-    size_t out_cap = 0;
-
-    for (size_t i = 0; i < out.index; ++i)
-    {
-        if (formatting->filter == NULL || strstr(out.first[i].buf, formatting->filter) != NULL)
-        {
-            out_cap += out.first[i].len;
-            out_cap += (max_par_len - out.first[i].len);
-            out_cap += out.second[i].len;
-            out_cap += 1;
-        }
-    }
-
-    // Allocate output string
-    MGLStringInternal* s = MGL_MALLOC(MGLStringInternal);
-    mglStringInternalInit(s, out_cap);
-
-    // Change order of strings
-    int out_permutations[MGL_MAX_NUM_RENDER_STATES];
-
-    for (size_t i = 0; i < MGL_MAX_NUM_RENDER_STATES; ++i)
-        out_permutations[i] = i;
-
-    if (formatting->order == MGLFormattingOrderSorted)
-    {
-        g_MGLOutputParamas = out_par;
-        qsort(out_permutations, MGL_MAX_NUM_RENDER_STATES, sizeof(int), mglCompareOutputPair);
-    }
-
-    // Merge all strings parts to the output string
-    for (size_t i = 0; i < out.index; ++i)
-    {
-        int out_i = out_permutations[i];
-
-        if (formatting->filter == NULL || strstr(out.first[out_i].buf, formatting->filter) != NULL)
-        {
-            // Append string parts to output string
-            const MGLStringInternal* cur_par = &(out.first[out_i]);
-            const MGLStringInternal* cur_val = &(out.second[out_i]);
-            const size_t cur_spaces_len = max_par_len - out.first[out_i].len;
-
-            mglStringInternalAppend(s, cur_par);
-            mglStringInternalResize(s, s->len + cur_spaces_len, formatting->separator);
-
-            if (cur_val->len > formatting->array_limit && cur_val->buf[cur_val->len - 1] == '}')
-            {
-                // Append string in multiple lines, one for each element
-                size_t off = 0, next_off = 0;
-
-                while (off < cur_val->len)
-                {
-                    // Find end of current element
-                    next_off = mglStringInternalFindChar(cur_val, ',', off, MGL_STRING_NPOS);
-                    if (next_off != MGL_STRING_NPOS)
-                    {
-                        mglStringInternalAppendSub(s, cur_val, off, next_off - off + 1);
-                        mglStringInternalAppendCStr(s, "\n");
-                        mglStringInternalResize(s, s->len + cur_par->len + cur_spaces_len + 1, formatting->separator);
-                        off = next_off + 1;
-                    }
-                    else
-                    {
-                        mglStringInternalAppendSub(s, cur_val, off, MGL_STRING_NPOS);
-                        break;
-                    }
-                }
-            }
-            else
-                mglStringInternalAppend(s, cur_val);
-
-            mglStringInternalAppendCStr(s, "\n");
-        }
-
-        // Free string parts
-        mglStringInternalFree(&(out.first[out_i]));
-        mglStringInternalFree(&(out.second[out_i]));
-    }
-
-    return (MGLString)s;
+    return mglPrintStringPairs(out, formatting);
 
     #undef MGL_VERSION
     #undef MGL_VERSION_MIN
     #undef MGL_PARAM_UNAVAIL
 }
 
-#if 0//TODO: not supported set
-
-MGLString mglAnalyzeIssues(enum MGLIssue issue)
+MGLString mglPrintBindingPoints(const MGLBindingPoints* bp, const MGLFormattingOptions* formatting)
 {
-    MGLStringInternal* s = MGL_MALLOC(MGLStringInternal);
-    mglStringInternalInit(s, 0);
+    // Internal constant parameters
+    static const MGLFormattingOptions   g_formattingDefault = { ' ', 1, 200, MGLFormattingOrderDefault, 1, NULL };
 
+    if (formatting == NULL)
+        formatting = (&g_formattingDefault);
 
-    return (MGLString)s;
+    // Provide array with all string parts
+    MGLStringInternal out_par[MGL_MAX_NUM_RENDER_STATES], out_val[MGL_MAX_NUM_RENDER_STATES];
+
+    memset(out_par, 0, sizeof(out_par));
+    memset(out_val, 0, sizeof(out_val));
+
+    MGLStringPairArray out = { out_par, out_val, 0 };
+
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_1D", bp->iTextureBinding1D, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_1D_ARRAY", bp->iTextureBinding1DArray, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_2D", bp->iTextureBinding2D, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_2D_ARRAY", bp->iTextureBinding2DArray, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_2D_MULTISAMPLE", bp->iTextureBinding2DMultisample, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY", bp->iTextureBinding2DMultisampleArray, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_3D", bp->iTextureBinding3D, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_BUFFER", bp->iTextureBindingBuffer, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_CUBE_MAP", bp->iTextureBindingCubeMap, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+    mglNextParamIntegerArray(&out, "GL_TEXTURE_BINDING_RECTANGLE", bp->iTextureBindingRectangle, MGL_MAX_TEXTURE_LAYERS, MGL_MAX_TEXTURE_LAYERS, 0);
+
+    return mglPrintStringPairs(out, formatting);
 }
-
-#endif
 
 const char* mglGetUTF8String(MGLString s)
 {
@@ -2706,6 +2822,10 @@ void mglFreeString(MGLString s)
         free(s);
     }
 }
+
+#ifdef __cplusplus
+} // /extern "C"
+#endif
 
 
 // *****************************************************************
