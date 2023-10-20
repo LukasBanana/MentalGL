@@ -1,7 +1,7 @@
 
 # === CMake lists for MentalGL - (26/03/2018) ===
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 project(MentalGL)
 
 
@@ -34,7 +34,7 @@ if(OpenGL_FOUND AND GLUT_FOUND)
 		"${PROJECT_SOURCE_DIR}/thirdparty/glad/include/glad/glad.h"
 	)
 	set_target_properties(test1 PROPERTIES LINKER_LANGUAGE C DEBUG_POSTFIX "D")
-	target_link_libraries(test1 ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
+	target_link_libraries(test1 ${OPENGL_LIBRARIES} ${GLUT_glut_LIBRARY})
 else()
 	message("missing OpenGL and/or GLUT to generate tests")
 endif()
