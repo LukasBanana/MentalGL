@@ -1276,6 +1276,7 @@ static const char* mglDrawBufferModeStr(GLenum param)
         MGL_CASE2STR( GL_COLOR_ATTACHMENT13 );
         MGL_CASE2STR( GL_COLOR_ATTACHMENT14 );
         MGL_CASE2STR( GL_COLOR_ATTACHMENT15 );
+        #if defined GL_COLOR_ATTACHMENT16 && defined GL_COLOR_ATTACHMENT31
         MGL_CASE2STR( GL_COLOR_ATTACHMENT16 );
         MGL_CASE2STR( GL_COLOR_ATTACHMENT17 );
         MGL_CASE2STR( GL_COLOR_ATTACHMENT18 );
@@ -1292,6 +1293,7 @@ static const char* mglDrawBufferModeStr(GLenum param)
         MGL_CASE2STR( GL_COLOR_ATTACHMENT29 );
         MGL_CASE2STR( GL_COLOR_ATTACHMENT30 );
         MGL_CASE2STR( GL_COLOR_ATTACHMENT31 );
+        #endif
     }
     return NULL;
 }
