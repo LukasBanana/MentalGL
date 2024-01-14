@@ -1,7 +1,7 @@
 /**
  * MentalGL (OpenGL debugging functions)
  * Published 2018 under the public domain
- * 
+ *
  * Authors:
  *  - Lukas Hermanns (Creator)
  *
@@ -9,6 +9,7 @@
  *  - v1.00 (03/26/2018): First release
  *  - v1.01 (01/26/2019): Refinements, MacOS portability
  *  - v1.02 (10/20/2023): Added mglQueryBindingPoints and mglPrintBindingPoints
+ *  - v1.03 (14/01/2024): Added missing GL states: GL_POLYGON_MODE, GL_FRONT_FACE, GL_PATCH_*, GL_CLIP_*
  *
  * USAGE EXAMPLE:
  *  // Optionally enable glGetIntegeri_v and glGetInteger64i_v
@@ -100,6 +101,8 @@ typedef struct MGLRenderState
     GLint       iBlendEquationRGB;                                                              // GL_BLEND_EQUATION_RGB
     GLint       iBlendSrcAlpha;                                                                 // GL_BLEND_SRC_ALPHA
     GLint       iBlendSrcRGB;                                                                   // GL_BLEND_SRC_RGB
+    GLint       iClipDepthMode;                                                                 // GL_CLIP_DEPTH_MODE
+    GLint       iClipOrigin;                                                                    // GL_CLIP_ORIGIN
     GLfloat     fColorClearValue[4];                                                            // GL_COLOR_CLEAR_VALUE
     GLboolean   bColorLogicOp;                                                                  // GL_COLOR_LOGIC_OP
     GLboolean   bColorWriteMask[4];                                                             // GL_COLOR_WRITEMASK
@@ -122,6 +125,7 @@ typedef struct MGLRenderState
     GLint       iDrawFramebufferBinding;                                                        // GL_DRAW_FRAMEBUFFER_BINDING
     GLint       iElementArrayBufferBinding;                                                     // GL_ELEMENT_ARRAY_BUFFER_BINDING
     GLint       iFragmentShaderDerivativeHint;                                                  // GL_FRAGMENT_SHADER_DERIVATIVE_HINT
+    GLint       iFrontFace;                                                                     // GL_FRONT_FACE
     GLint       iImplementationColorReadFormat;                                                 // GL_IMPLEMENTATION_COLOR_READ_FORMAT
     GLint       iImplementationColorReadType;                                                   // GL_IMPLEMENTATION_COLOR_READ_TYPE
     GLboolean   bLineSmooth;                                                                    // GL_LINE_SMOOTH
@@ -226,9 +230,13 @@ typedef struct MGLRenderState
     GLint       iPackSkipPixels;                                                                // GL_PACK_SKIP_PIXELS
     GLint       iPackSkipRows;                                                                  // GL_PACK_SKIP_ROWS
     GLboolean   bPackSwapBytes;                                                                 // GL_PACK_SWAP_BYTES
+    GLint       iPatchDefaultInnerLevel;                                                        // GL_PATCH_DEFAULT_INNER_LEVEL
+    GLint       iPatchDefaultOuterLevel;                                                        // GL_PATCH_DEFAULT_OUTER_LEVEL
+    GLint       iPatchVertices;                                                                 // GL_PATCH_VERTICES
     GLint       iPixelPackBufferBinding;                                                        // GL_PIXEL_PACK_BUFFER_BINDING
     GLint       iPixelUnpackBufferBinding;                                                      // GL_PIXEL_UNPACK_BUFFER_BINDING
     GLfloat     fPointFadeThresholdSize;                                                        // GL_POINT_FADE_THRESHOLD_SIZE
+    GLint       iPolygonMode[2];                                                                // GL_POLYGON_MODE
     GLint       iPrimitiveRestartIndex;                                                         // GL_PRIMITIVE_RESTART_INDEX
     GLint       iProgramBinaryFormats[MGL_MAX_PROGRAM_BINARY_FORMATS];                          // GL_PROGRAM_BINARY_FORMATS
     GLint       iProgramPipelineBinding;                                                        // GL_PROGRAM_PIPELINE_BINDING
@@ -419,7 +427,7 @@ void mglFreeString(MGLString s);
 #define MGL_STRING_MIN_CAPACITY                     16
 #define MGL_STRING_NPOS                             (size_t)~0
 
-#define MGL_MAX_NUM_RENDER_STATES                   256
+#define MGL_MAX_NUM_RENDER_STATES                   264
 
 
 // *****************************************************************
@@ -1013,6 +1021,27 @@ static const char* mglCullFaceModeStr(GLenum param)
     return NULL;
 }
 
+static const char* mglPolygonModeStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_POINT );
+        MGL_CASE2STR( GL_LINE );
+        MGL_CASE2STR( GL_FILL );
+    }
+    return NULL;
+}
+
+static const char* mglFrontFaceStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_CW );
+        MGL_CASE2STR( GL_CCW );
+    }
+    return NULL;
+}
+
 static const char* mglLogicOpModeStr(GLenum param)
 {
     switch (param)
@@ -1436,6 +1465,30 @@ static const char* mglImplementationColorReadTypeStr(GLenum param)
 
 #endif // /GL_VERSION_4_1
 
+#ifdef GL_VERSION_4_5
+
+static const char* mglClipOriginStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_LOWER_LEFT );
+        MGL_CASE2STR( GL_UPPER_LEFT );
+    }
+    return NULL;
+}
+
+static const char* mglClipDepthModeStr(GLenum param)
+{
+    switch (param)
+    {
+        MGL_CASE2STR( GL_NEGATIVE_ONE_TO_ONE );
+        MGL_CASE2STR( GL_ZERO_TO_ONE );
+    }
+    return NULL;
+}
+
+#endif // /GL_VERSION_4_5
+
 static const MGLStringInternal* g_MGLOutputParamas = NULL;
 
 static int mglCompareOutputPair(const void* lhs, const void* rhs)
@@ -1494,6 +1547,7 @@ void mglQueryRenderState(MGLRenderState* rs)
     glGetBooleanv(GL_DITHER, &(rs->bDither));
     glGetBooleanv(GL_DOUBLEBUFFER, &(rs->bDoubleBuffer));
     glGetIntegerv(GL_DRAW_BUFFER, &(rs->iDrawBuffer));
+    glGetIntegerv(GL_FRONT_FACE, &(rs->iFrontFace));
     glGetBooleanv(GL_LINE_SMOOTH, &(rs->bLineSmooth));
     glGetIntegerv(GL_LINE_SMOOTH_HINT, &(rs->iLineSmoothHint));
     glGetFloatv(GL_LINE_WIDTH, &(rs->fLineWidth));
@@ -1509,6 +1563,7 @@ void mglQueryRenderState(MGLRenderState* rs)
     glGetFloatv(GL_POINT_SIZE, &(rs->fPointSize));
     glGetFloatv(GL_POINT_SIZE_GRANULARITY, &(rs->fPointSizeGranularity));
     glGetFloatv(GL_POINT_SIZE_RANGE, &(rs->fPointSizeRange[0]));
+    glGetIntegerv(GL_POLYGON_MODE, &(rs->iPolygonMode[0]));
     glGetBooleanv(GL_POLYGON_SMOOTH, &(rs->bPolygonSmooth));
     glGetIntegerv(GL_POLYGON_SMOOTH_HINT, &(rs->iPolygonSmoothHint));
     glGetIntegerv(GL_READ_BUFFER, &(rs->iReadBuffer));
@@ -1768,6 +1823,9 @@ void mglQueryRenderState(MGLRenderState* rs)
     if (MGL_VERSION_MIN(4, 0))
     {
         glGetIntegerv(GL_MAX_TRANSFORM_FEEDBACK_BUFFERS, &(rs->iMaxTransformFeedbackBuffers));
+        glGetIntegerv(GL_PATCH_DEFAULT_INNER_LEVEL, &(rs->iPatchDefaultInnerLevel));
+        glGetIntegerv(GL_PATCH_DEFAULT_OUTER_LEVEL, &(rs->iPatchDefaultOuterLevel));
+        glGetIntegerv(GL_PATCH_VERTICES, &(rs->iPatchVertices));
     }
     #endif // /GL_VERSION_4_0
 
@@ -1860,6 +1918,18 @@ void mglQueryRenderState(MGLRenderState* rs)
         mglGetInteger64StaticArray(GL_SHADER_STORAGE_BUFFER_START, &(rs->iShaderStorageBufferStart[0]), MGL_MAX_SHADER_STORAGE_BUFFER_BINDINGS);
     }
     #endif // /GL_VERSION_4_3
+
+    // *****************************************************************
+    //      GL_VERSION_4_5
+    // *****************************************************************
+
+    #ifdef GL_VERSION_4_5
+    if (MGL_VERSION_MIN(4, 5))
+    {
+        glGetIntegerv(GL_CLIP_DEPTH_MODE, &(rs->iClipDepthMode));
+        glGetIntegerv(GL_CLIP_ORIGIN, &(rs->iClipOrigin));
+    }
+    #endif // /GL_VERSION_4_5
 
     #undef MGL_VERSION
     #undef MGL_VERSION_MIN
@@ -2078,6 +2148,7 @@ MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptio
     mglNextParamBoolean(&out, "GL_DITHER", rs->bDither);
     mglNextParamBoolean(&out, "GL_DOUBLEBUFFER", rs->bDoubleBuffer);
     mglNextParamInteger(&out, "GL_DRAW_BUFFER", rs->iDrawBuffer);
+    mglNextParamEnum(&out, "GL_FRONT_FACE", rs->iFrontFace, mglFrontFaceStr);
     mglNextParamBoolean(&out, "GL_LINE_SMOOTH", rs->bLineSmooth);
     mglNextParamEnum(&out, "GL_LINE_SMOOTH_HINT", rs->iLineSmoothHint, mglHintModeStr);
     mglNextParamFloat(&out, "GL_LINE_WIDTH", rs->fLineWidth);
@@ -2093,6 +2164,7 @@ MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptio
     mglNextParamFloat(&out, "GL_POINT_SIZE", rs->fPointSize);
     mglNextParamFloat(&out, "GL_POINT_SIZE_GRANULARITY", rs->fPointSizeGranularity);
     mglNextParamFloatArray(&out, "GL_POINT_SIZE_RANGE", rs->fPointSizeRange, 2);
+    mglNextParamEnumArray(&out, "GL_POLYGON_MODE", rs->iPolygonMode, 2, 2, mglPolygonModeStr);
     mglNextParamBoolean(&out, "GL_POLYGON_SMOOTH", rs->bPolygonSmooth);
     mglNextParamEnum(&out, "GL_POLYGON_SMOOTH_HINT", rs->iPolygonSmoothHint, mglHintModeStr);
     mglNextParamInteger(&out, "GL_READ_BUFFER", rs->iReadBuffer);
@@ -2575,6 +2647,9 @@ MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptio
     if (MGL_VERSION_MIN(4, 0))
     {
         mglNextParamInteger(&out, "GL_MAX_TRANSFORM_FEEDBACK_BUFFERS", rs->iMaxTransformFeedbackBuffers);
+        mglNextParamInteger(&out, "GL_PATCH_DEFAULT_INNER_LEVEL", rs->iPatchDefaultInnerLevel);
+        mglNextParamInteger(&out, "GL_PATCH_DEFAULT_OUTER_LEVEL", rs->iPatchDefaultOuterLevel);
+        mglNextParamInteger(&out, "GL_PATCH_VERTICES", rs->iPatchVertices);
     }
     else
     #endif
@@ -2770,6 +2845,26 @@ MGLString mglPrintRenderState(const MGLRenderState* rs, const MGLFormattingOptio
         MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT );
         MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_SIZE );
         MGL_PARAM_UNAVAIL( GL_SHADER_STORAGE_BUFFER_START );
+    }
+
+    // *****************************************************************
+    //      GL_VERSION_4_5
+    // *****************************************************************
+
+    if (formatting->order == MGLFormattingOrderDefault)
+        mglNextHeadline(&out, "\nGL_VERSION_4_5");
+
+    #ifdef GL_VERSION_4_5
+    if (MGL_VERSION_MIN(4, 5))
+    {
+        mglNextParamEnum(&out, "GL_CLIP_DEPTH_MODE", rs->iClipDepthMode, mglClipDepthModeStr);
+        mglNextParamEnum(&out, "GL_CLIP_ORIGIN", rs->iClipOrigin, mglClipOriginStr);
+    }
+    else
+    #endif // /GL_VERSION_4_5
+    {
+        MGL_PARAM_UNAVAIL( GL_CLIP_DEPTH_MODE );
+        MGL_PARAM_UNAVAIL( GL_CLIP_ORIGIN );
     }
 
     return mglPrintStringPairs(out, formatting);
